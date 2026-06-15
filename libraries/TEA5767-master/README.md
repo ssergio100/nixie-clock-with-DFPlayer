@@ -1,0 +1,37 @@
+# TEA5767-Library
+Arduino Library for the TEA5767 Radio Module
+
+Neste fork, foi implementado a function setMono().
+
+## Supported Functions:
+ - short: init(short minlvl)            //Initialize Bus and search for Stations
+ - bool:  setFrequency(float frequency) //Set Radio Frequency
+ - void:  setMuted(bool muted)          //Mute/Unmute Module
+ - void:  setMono(bool mono)            //Add a new function to set forced mono, very useful for space-constrained projects like clock radios.
+When setting forced mono the function 'isStereo()' function continues to return correctly if the station is stereo because this is a characteristic of the TEA5767
+ - ~~bool:  setSearch(bool up, int level)~~	//Search for Stations <= Currently not working
+ - void:  setStandby(bool stby)         //Enable/Disable Standby Mode
+ - void:  setStereoNC(bool snc)         //Enable/Disable Stereo Noise Cancelling
+ - float: getFrequency()                //Returns the current Radio Frequency
+ - int:   getReady()                    //Get current State (0=Nothing, 1=Found Station, 2=Reached Frequency Limit)
+ - bool:  isStereo()                    //Get if the Frequency support Stereo
+ - short: getSignalLevel()              //Get Signal Level (0-15)
+ - int:   findStations(short minlvl)    //Search for available Stations
+ - float: nextStation()                 //Go to next Station
+ - float: previousStation()             //Go to previous Station
+ - short: getStations()                 //Get Number of Stations
+  
+## How to install:
+  1.  Download ZIP
+  2.  Click Sketch => Include Library => Add .ZIP Library
+  3.  Select downloaded ZIP-File
+  4.  Try out the included examples!
+  
+## How to connect the Module:
+ - GND to GND
+ - VCC to 5V (3.3V won't work perfectly well and cause random errors, like frequency shift)
+ - SDA and SCL depend on your board, check [Arduino-Wire](https://www.arduino.cc/en/Reference/Wire)
+
+
+Add a new feature to set forced mono, very useful for space-constrained projects like clock radios.
+When setting forced nome the function 'isStereo' continues to return correctly if the station is stereo.
