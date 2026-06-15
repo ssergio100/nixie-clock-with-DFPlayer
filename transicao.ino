@@ -25,15 +25,18 @@ void transicao() {
     }
     
     // No aniversário do Arthur (21 de setembro), alterna a música a cada hora:
-    // Horas pares tocam Parabéns, horas ímpares tocam a melodia normal.
-    if (mday == 21 && mon == 9 && !in_adjust) {
+    // Horas pares tocam a faixa 2 (Parabéns MP3), horas ímpares tocam a faixa 3 (Som especial MP3).
+    if (mday == 21 && mon == 9 && ajuste == 0) {
+      df_volume(20);
       if (hour % 2 == 0) {
-        inicia_parabens();
+        df_play(2);
       } else {
-        inicia_musica();
+        df_play(3);
       }
     } else {
-      if (!in_adjust) inicia_musica(); // Melodia normal (Minecraft) nos outros dias
+      if (ajuste == 0) {
+        tone(buzzer, 1500, 100); // Bip discreto a cada hora cheia no buzzer físico
+      }
     }
     
   } else {

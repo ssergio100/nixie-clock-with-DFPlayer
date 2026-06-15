@@ -4,8 +4,13 @@
 #include <JC_Button.h>
 #include <RotaryEncoder.h>
 #include <TEA5767.h>
+#include <LiquidCrystal_I2C.h>
+#include <SoftwareSerial.h>
 #include "freqs.h"
+
 ErriezDS1307 rtc;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+SoftwareSerial dfSerial(10, 11); // RX (Pino 10), TX (Pino 11)
 
 TEA5767 rfm = TEA5767();
 
@@ -28,16 +33,29 @@ int8_t m_u;  //unidade dos minutos
 
 
 const uint8_t sends[] = { 5, 6, 7, 8 };
-const uint8_t RGB[] = { 9, 10, 11 };
+#define LED_BASE 9
 
-// Variáveis de controle
-uint8_t ajuste;
-uint8_t in_adjust;
-uint8_t hora_relogio;
-uint8_t minuto_relogio;
-uint8_t f_step;
-int pos;
-bool radio_ligado;
+// Variáveis de controle e Alarme
+uint8_t ajuste = 0; // 0 = Relógio Normal, 1-5 = Menus, 6 = Salvar/Sair
+uint8_t f_step = 0;
+int pos = 0;
+bool radio_ligado = false;
+
+uint8_t alarme_hora = 6;
+uint8_t alarme_min = 0;
+bool alarme_ligado = false;
+bool alarme_radio = false; // 0 = Buzzer, 1 = Rádio
+bool alarme_fds = false;
+
+// Estado do Alarme
+bool alarme_tocando = false;
+bool em_soneca = false;
+unsigned long soneca_end_time = 0;
+const unsigned long TEMPO_SONECA_MS = 300000; // 5 minutos (5 * 60 * 1000)
+
+// Caça-Níqueis
+bool is_slot_machine = false;
+unsigned long slot_machine_start = 0;
 
 // Frequência e posicionamento
 int newPos;
@@ -58,7 +76,7 @@ bool pressionadoLongo = false;
 unsigned long falhas = 0;
 unsigned long ms, msLast;
 const unsigned long LONG_PRESS = 700;
-const unsigned long MSLERTIME = 500;
+const unsigned long MSLERTIME = 1000;
 unsigned long millisTarefa1;  // Inicializar depois no setup()
 
 RotaryEncoder *encoder = nullptr;
@@ -69,9 +87,7 @@ void setup() {
 
   pinMode(buzzer, OUTPUT);
   pinMode(vcc_amp, OUTPUT);
-  pinMode(RGB[0], OUTPUT);
-  pinMode(RGB[1], OUTPUT);
-  pinMode(RGB[2], OUTPUT);
+  pinMode(LED_BASE, OUTPUT);
 
   pinMode(sends[0], OUTPUT);
   pinMode(sends[1], OUTPUT);
@@ -84,7 +100,6 @@ void setup() {
   pinMode(set_m_u, OUTPUT);
 
   Wire.begin();
-  Wire.setClock(100000);
 
   if (!rtc.begin()) {
     Serial.println(F("RTC not found"));  // Apenas avisa, sem travar
@@ -99,6 +114,8 @@ void setup() {
   //rtc.setSquareWave(SquareWaveDisable);
   digitalWrite(vcc_amp, HIGH);  //amplificador desligado
   myBtn.begin();
+  dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
+  
   rfm.init(12);
   rfm.setStandby(1);
   rfm.setMono(1);
@@ -110,9 +127,26 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_IN1), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_IN2), checkPosition, CHANGE);
 
-  rtc.getTime(&hour, &min, &sec);
+  rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
+
+  // Iniciar LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+
+  // Carregar Alarmes
+  alarme_hora = EEPROM.read(0);
+  if (alarme_hora > 23) alarme_hora = 6;
+  alarme_min = EEPROM.read(1);
+  if (alarme_min > 59) alarme_min = 0;
+  alarme_ligado = EEPROM.read(2) == 1;
+  alarme_radio = EEPROM.read(3) == 1;
+  alarme_fds = EEPROM.read(4) == 1;
 
   f_size = getFreqsSize();
+
+  // Força o I2C para 400kHz no final do setup para garantir que o LCD/Radio não resetaram a velocidade
+  Wire.setClock(400000);
 }
 
 void loop() {
@@ -129,35 +163,60 @@ void loop() {
   ms = millis();
   myBtn.read();
   state();
-  toca_musica_loop(); // Máquina de estados da música
 
   if ((ms - msLast) >= MSLERTIME) {
-    //debug();
-    if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
-      Serial.println(F("Read date/time failed"));
-      ++falhas;
-      //  return;
+    if (ajuste == 0) { // Só puxa a hora do chip físico se não estivermos no menu
+      if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
+        Serial.println(F("Read date/time failed"));
+        ++falhas;
+      } else {
+        // --- LÓGICA DE DISPARO DO ALARME ---
+        static int last_alarm_min = -1;
+        if (alarme_ligado && hour == alarme_hora && min == alarme_min && last_alarm_min != min && !em_soneca) {
+            bool toca_hoje = true;
+            // DS1307: 1 = Domingo, 7 = Sábado. Se alarme_fds for false (só dias de semana), ignoramos dom(1) e sab(7).
+            if (!alarme_fds && (wday == 1 || wday == 7)) {
+                toca_hoje = false; 
+            }
+            if (toca_hoje) {
+                last_alarm_min = min; // Trava para não tocar de novo no mesmo minuto
+                alarme_tocando = true; // Flag de Soneca/Cancelamento
+                Serial.println(F(">>> ALARME DISPARADO! <<<"));
+                if (alarme_radio) {
+                    if (!radio_ligado) {
+                        Serial.println(F("Ligando rádio para o alarme..."));
+                        radio_ligado = true;
+                        rfm.setStandby(0);
+                        digitalWrite(vcc_amp, LOW);
+                    }
+                } else {
+                    Serial.println(F("Tocando alarme MP3..."));
+                    df_volume(25); // Volume alto para acordar
+                    df_loop(1); // Toca a faixa 0001.mp3 do SD em repetição
+                }
+            }
+        }
+        // Reseta a trava no minuto seguinte
+        if (min != alarme_min) {
+            last_alarm_min = -1;
+        }
+      }
     }
     transicao();
+    atualiza_lcd(); // Atualiza a tela 16x2 sempre que lemos o RTC
     msLast = ms;
-    // int sg =  rfm.getSignalLevel();
-    //  Serial.println(sg);
   }
   
-  if (radio_ligado) {
-    radio();
+  if (ajuste > 0) {
+    run_setup_menu();
   } else {
-
-    if (ajuste == 1) {
-      rgb_time = 100;
-      rgb(18, 20, 0);
-    } else if (ajuste == 2) {  // efeito ao sair do modo de ajuste
-      rgb(18, 0, 18);
+    if (radio_ligado) {
+      radio();
     } else {
       rgb_time = 1500;
-      rgb(18, 20, 0);  //laranja
+      rgb(18, 20, 0);  // laranja
+      relogio();
     }
-    relogio();
   }
 
   atualiza(); // Chama a máquina de estados a cada ciclo do loop
@@ -220,16 +279,12 @@ void escreve_byte_fast(byte x) {
 
 
 void rgb(int R, int G, int B) {
-
-  // Verifica se já passou 200 milisegundos
+  // Ignoramos G e B, pois agora o hardware usa apenas o pino LED_BASE (Pino 9).
+  // A cor será definida fisicamente por resistores, então R atua apenas como intensidade.
   if ((millis() - millisTarefa1) < rgb_time) {
-    analogWrite(RGB[0], R);
-    analogWrite(RGB[1], G);
-    analogWrite(RGB[2], B);
+    analogWrite(LED_BASE, R);
   } else {
-    analogWrite(RGB[0], 0);
-    analogWrite(RGB[1], 0);
-    analogWrite(RGB[2], 0);
+    analogWrite(LED_BASE, 0);
   }
 
   if ((millis() - millisTarefa1) > rgb_time * 2) {
