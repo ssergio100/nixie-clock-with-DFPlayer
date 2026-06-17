@@ -10,12 +10,12 @@ void ajustarFrequencia() {
 
         if (dir < 0) { // Girou para direita (Avança frequência)
               if (f_step == 1 || f_step == 2) {
-                  rfm.setMuted(true); // Silencia o rádio durante a busca
+                  rx.setMute(true); // Silencia o rádio durante a busca
                   int steps = 0;
                   do {
                       freqs[f_atual] += 0.1;
                       if (freqs[f_atual] > 107.90) freqs[f_atual] = 76.10;
-                      rfm.setFrequency(freqs[f_atual]);
+                      rx.setFrequency((uint16_t)(freqs[f_atual] * 100));
                       atualizarDisplay(); 
                       
                       unsigned long start = millis();
@@ -23,19 +23,19 @@ void ajustarFrequencia() {
                           atualiza();
                       }
                       steps++;
-                  } while (rfm.getSignalLevel() < SIGNAL_THRESHOLD && steps < 320);
-                  rfm.setMuted(false); // Restaura o áudio ao travar na estação
+                  } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
+                  rx.setMute(false); // Restaura o áudio ao travar na estação
               } else {
                   f_atual = (f_atual < f_size) ? f_atual + 1 : 0;
               }
         } else { // Girou para esquerda (Recua frequência)
               if (f_step == 1 || f_step == 2) {
-                  rfm.setMuted(true); // Silencia o rádio durante a busca
+                  rx.setMute(true); // Silencia o rádio durante a busca
                   int steps = 0;
                   do {
                       freqs[f_atual] -= 0.1;
                       if (freqs[f_atual] < 76.10) freqs[f_atual] = 107.90;
-                      rfm.setFrequency(freqs[f_atual]);
+                      rx.setFrequency((uint16_t)(freqs[f_atual] * 100));
                       atualizarDisplay(); 
                       
                       unsigned long start = millis();
@@ -43,20 +43,20 @@ void ajustarFrequencia() {
                           atualiza();
                       }
                       steps++;
-                  } while (rfm.getSignalLevel() < SIGNAL_THRESHOLD && steps < 320);
-                  rfm.setMuted(false); // Restaura o áudio ao travar na estação
+                  } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
+                  rx.setMute(false); // Restaura o áudio ao travar na estação
               } else {
                   f_atual = (f_atual > 0) ? f_atual - 1 : f_size - 1;
               }
         }
-        int sg =  rfm.getSignalLevel();
+        int sg =  rx.getRssi();
          Serial.println(sg);
         // if(sg >=4){
         //     rfm.setMuted(0);
         // } else {
         //     rfm.setMuted(1);
         // }
-        rfm.setFrequency(freqs[f_atual]);
+        rx.setFrequency((uint16_t)(freqs[f_atual] * 100));
         Serial.println("Freq.:");
         Serial.println(freqs[f_atual]);
     }

@@ -3,7 +3,7 @@
 #include <ErriezDS1307.h>
 #include <JC_Button.h>
 #include <RotaryEncoder.h>
-#include <TEA5767.h>
+#include <RDA5807.h>
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 #include "freqs.h"
@@ -12,7 +12,7 @@ ErriezDS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial dfSerial(10, 11); // RX (Pino 10), TX (Pino 11)
 
-TEA5767 rfm = TEA5767();
+RDA5807 rx;
 
 #define set_h_d 14  //~  14 A0
 #define set_h_u 15  //~  15 A1
@@ -111,16 +111,17 @@ void setup() {
   //      }
 
 
-  //rtc.setSquareWave(SquareWaveDisable);
+  rtc.setSquareWave(SquareWave1Hz); // Ativa o pulso de 1Hz no pino SQW para piscar o LED
   digitalWrite(vcc_amp, HIGH);  //amplificador desligado
   myBtn.begin();
   dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
   
-  rfm.init(12);
-  rfm.setStandby(1);
-  rfm.setMono(1);
-  //rfm.setStereoNC(true);
-  rfm.setFrequency(freqs[f_atual]);
+  rx.setup();
+  rx.setVolume(5); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
+  rx.setSoftmute(false); // Desativa o mute gradual para agilizar a sintonização
+  rx.setMute(false);
+  rx.setMono(true); // Mono garante sinal mais limpo em transmissões fracas
+  rx.setFrequency((uint16_t)(freqs[f_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
 
 
   encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::TWO03);
@@ -145,19 +146,12 @@ void setup() {
 
   f_size = getFreqsSize();
 
-  // Força o I2C para 400kHz no final do setup para garantir que o LCD/Radio não resetaram a velocidade
-  Wire.setClock(400000);
+  // O DS1307 só suporta 100kHz! Acelerar para 400kHz pode corromper as leituras ou travar o chip.
+  // Como resolvemos o pisca-pisca das válvulas com o "cache do LCD", não precisamos mais do I2C em overclock.
+  // Wire.setClock(400000);
 }
 
 void loop() {
-
-  //digitalWrite(vcc_amp, LOW);  //amplificador desligado
-
-  // while(1){
-  //    preee(3, 50);
-
-  // };
-
   newPos = encoder->getPosition();
 
   ms = millis();
@@ -186,13 +180,16 @@ void loop() {
                     if (!radio_ligado) {
                         Serial.println(F("Ligando rádio para o alarme..."));
                         radio_ligado = true;
-                        rfm.setStandby(0);
+                        rx.setMute(false); // Liga o áudio do rádio
                         digitalWrite(vcc_amp, LOW);
                     }
                 } else {
                     Serial.println(F("Tocando alarme MP3..."));
+                    // O rádio precisa estar mudo para não misturar áudios
+                    if (radio_ligado) rx.setMute(true); 
+                    digitalWrite(vcc_amp, LOW); // LIGA O AMPLIFICADOR! (Faltava isso)
                     df_volume(25); // Volume alto para acordar
-                    df_loop(1); // Toca a faixa 0001.mp3 do SD em repetição
+                    df_loop(1); // Toca a primeira faixa do SD em repetição
                 }
             }
         }
@@ -213,10 +210,34 @@ void loop() {
     if (radio_ligado) {
       radio();
     } else {
-      rgb_time = 1500;
+      rgb_time = 1000; // 1000ms aceso, 1000ms apagado = 1 ciclo a cada 2 segundos (0.5Hz)
       rgb(18, 20, 0);  // laranja
       relogio();
     }
+  }
+  
+  // --- LEITURA DO POTENCIÔMETRO (A6) PARA VOLUME ---
+  static unsigned long last_vol_read_orig = 0;
+  if (ms - last_vol_read_orig > 200) {
+      last_vol_read_orig = ms;
+      int pot_val = analogRead(A6);
+      
+      // O potenciômetro físico já é Logarítmico (Audio Taper)! 
+      // Fazer a matemática no software estava criando uma curva dupla distorcida.
+      // Voltamos para a leitura 100% linear:
+      int novo_volume_radio = map(pot_val, 0, 1023, 0, 15); // Escala RDA5807
+      
+      static int volume_atual_orig = -1;
+      if (novo_volume_radio != volume_atual_orig) {
+          volume_atual_orig = novo_volume_radio;
+          
+          if (radio_ligado) {
+              rx.setVolume(volume_atual_orig);
+          }
+          // MP3 usa escala 0-30
+          int novo_volume_mp3 = map(pot_val, 0, 1023, 0, 30);
+          df_volume(novo_volume_mp3);
+      }
   }
 
   atualiza(); // Chama a máquina de estados a cada ciclo do loop

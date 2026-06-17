@@ -12,8 +12,8 @@ void atualiza_lcd() {
       const char* modo_str = (f_step == 0) ? "MEM" : ((f_step == 1) ? "SCA" : "LIV");
       snprintf(linha1, sizeof(linha1), "FM %sMHz  %s", freq_buf, modo_str);
       
-      const char* stereo_str = rfm.isStereo() ? "Stereo" : "Mono";
-      snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rfm.getSignalLevel(), stereo_str);
+      const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
+      snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
   } else if (ajuste > 0) {
       // MODO SETUP: Menus de Configuração
       switch (ajuste) {

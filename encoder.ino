@@ -36,7 +36,7 @@ void state() {
           
           if (alarme_radio && radio_ligado) {
               radio_ligado = false;
-              rfm.setStandby(1);
+              rx.setMute(true);
               digitalWrite(vcc_amp, HIGH);
           } else {
               df_stop();
@@ -47,12 +47,12 @@ void state() {
       } else {
           if (radio_ligado == 0) {
               Serial.println("Radio ON");
-              rfm.setStandby(0);
+              rx.setMute(false);
               digitalWrite(vcc_amp, LOW);
               radio_ligado = 1;
           } else {
               Serial.print("Rádio OFF");
-              rfm.setStandby(1);
+              rx.setMute(true);
               digitalWrite(vcc_amp, HIGH);
               beep(70);
               radio_ligado = 0;
@@ -76,7 +76,7 @@ void state() {
               
               if (alarme_radio && radio_ligado) {
                   radio_ligado = false;
-                  rfm.setStandby(1);
+                  rx.setMute(true);
                   digitalWrite(vcc_amp, HIGH);
               } else {
                   df_stop();

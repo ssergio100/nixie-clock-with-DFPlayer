@@ -11,10 +11,12 @@ void relogio() {
           Serial.println(F(">>> SONECA ACABOU! ACORDANDO <<<"));
           if (alarme_radio) {
               radio_ligado = true;
-              rfm.setStandby(0);
+              rx.setMute(false);
               digitalWrite(vcc_amp, LOW);
           } else {
-              inicia_alarme_classico();
+              Serial.println(F("Tocando alarme MP3..."));
+              df_volume(25);
+              df_loop(1);
           }
       } else {
           // Exibe a contagem regressiva (Minutos : Segundos)
