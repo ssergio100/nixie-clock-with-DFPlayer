@@ -30,7 +30,7 @@ void atualiza_lcd() {
               if (alarme_radio) {
                   snprintf(linha2, sizeof(linha2), "RADIO (%s)", alarme_ligado ? "ON " : "OFF");
               } else {
-                  snprintf(linha2, sizeof(linha2), "BUZZER (%s)", alarme_ligado ? "ON " : "OFF");
+                  snprintf(linha2, sizeof(linha2), "MP3 (%s)", alarme_ligado ? "ON " : "OFF");
               }
               break;
           case 4:
@@ -57,11 +57,11 @@ void atualiza_lcd() {
   } else {
       // MODO RELÓGIO/NORMAL: Linha 1 Status do Alarme
       if (alarme_ligado) {
-          char tipo_som[4]; // "Rád" ou "Buz"
+          char tipo_som[4]; // "Rad" ou "MP3"
           if (alarme_radio) {
               strcpy(tipo_som, "Rad");
           } else {
-              strcpy(tipo_som, "Buz");
+              strcpy(tipo_som, "MP3");
           }
 
           char status_fds[4]; // "FDS" ou "   "

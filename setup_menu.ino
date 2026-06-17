@@ -36,7 +36,7 @@ void run_setup_menu() {
             break;
 
         case 3: // Opções do Alarme (Som e Status)
-            if (dir > 0) { // Esquerda - Rádio ou Buzzer
+            if (dir > 0) { // Esquerda - Rádio ou MP3
                 alarme_radio = !alarme_radio;
             } else if (dir < 0) { // Direita - Ligado ou Desligado
                 alarme_ligado = !alarme_ligado;

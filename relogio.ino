@@ -15,6 +15,7 @@ void relogio() {
               digitalWrite(vcc_amp, LOW);
           } else {
               Serial.println(F("Tocando alarme MP3..."));
+              digitalWrite(vcc_amp, LOW); // LIGA O AMPLIFICADOR!
               df_volume(25);
               df_loop(1);
           }

@@ -4,6 +4,8 @@ void radio() {
 }
 
 void ajustarFrequencia() {
+    if (alarme_tocando) return; // Ignora o encoder se o alarme estiver tocando
+
     if (pos != newPos && radio_ligado == 1) {
         int dir = (newPos > pos) ? 1 : -1;
         pos = newPos;

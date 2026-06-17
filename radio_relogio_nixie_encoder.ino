@@ -8,9 +8,12 @@
 #include <SoftwareSerial.h>
 #include "freqs.h"
 
+#include <DFRobotDFPlayerMini.h>
+
 ErriezDS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-SoftwareSerial dfSerial(10, 11); // RX (Pino 10), TX (Pino 11)
+SoftwareSerial dfSerial(11, 10); // RX (Pino 11), TX (Pino 10) - Corrigido cruzamento
+DFRobotDFPlayerMini myDFPlayer;
 
 RDA5807 rx;
 
@@ -116,6 +119,24 @@ void setup() {
   myBtn.begin();
   dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
   
+  // Aguarda boot elétrico do DFPlayer
+  Serial.println(F("Aguardando 2s para boot do DFPlayer..."));
+  delay(2000);
+
+  // Inicializa a biblioteca DFRobotDFPlayerMini
+  if (!myDFPlayer.begin(dfSerial, true, false)) {
+    Serial.println(F("Falha ao inicializar DFPlayer pela biblioteca."));
+  } else {
+    Serial.println(F("DFPlayer Mini Online pela biblioteca."));
+  }
+  
+  // Lê volume inicial do potenciômetro e define silencioso
+  int pot_val = analogRead(A6);
+  int vol_mp3 = map(pot_val, 0, 1023, 0, 30);
+  myDFPlayer.volume(vol_mp3);
+  delay(100);
+  myDFPlayer.stop();
+
   rx.setup();
   rx.setVolume(5); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
   rx.setSoftmute(false); // Desativa o mute gradual para agilizar a sintonização
