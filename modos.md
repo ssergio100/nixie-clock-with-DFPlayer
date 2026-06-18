@@ -9,19 +9,21 @@ Documentação do comportamento do hardware e do encoder rotativo em cada estado
 * **Giro:** *[Vazio - Atualmente não faz nada. Sugestão: Ajustar o brilho geral das válvulas ou trocar a cor do LED RGB base?]*
 
 ### 2. MODO RÁDIO (Ouvindo FM)
-* **O que faz:** O módulo FM está ativo e o áudio é liberado.
-* **Toque Curto:** Alterna o "sub-modo" do giro (`f_step`): *Navegar nas Memórias -> Busca Fina de Estação -> Exibir Hora*.
+* **O que faz:** O módulo FM está ativo e o áudio é liberado. A multiplexação das Nixies é executada via Timer1 (interrupção a cada 3ms) em segundo plano, evitando piscadas e distúrbios.
+* **Toque Curto:** Alterna o foco do giro do encoder entre **Sintonia (SCA)** e **Volume (VOL)**.
 * **Toque Longo:** Desliga o rádio e volta ao **MODO RELÓGIO**.
-* **Giro:** Muda de estação ou de memória (conforme o sub-modo acima).
+* **Giro (conforme o modo ativo):**
+  * **Modo Sintonia (SCA):** Varre as frequências de 0.1 em 0.1 MHz e para na próxima estação forte (com RSSI >= SIGNAL_THRESHOLD). O display Nixie exibe a frequência sintonizada (ex: `106.3`).
+  * **Modo Volume (VOL):** Ajusta o volume digital do rádio de `0` (mudo absoluto via software) a `15` (máximo). As válvulas Nixie passam a exibir o sinal de recepção RSSI nas horas (esquerda) e o nível de volume nos minutos (direita). A luz base LED muda para Roxo/Lilás como feedback visual.
 
 ### 3. MODO SETUP (Configuração)
-* **O que faz:** Interrompe a contagem para edição (Menus 1 a 6). A luz base fica vermelha.
+* **O que faz:** Interrompe a contagem para edição (Menus 1 a 6). A luz base fica vermelha. A multiplexação das Nixies também roda no Timer1 de forma estável.
 * **Toque Curto:** Avança para a próxima tela. Na tela 7, salva tudo na EEPROM/RTC e volta ao **MODO RELÓGIO**.
 * **Toque Longo:** Salva todas as alterações imediatamente e sai do modo de configuração, voltando ao **MODO RELÓGIO** (atalho para não precisar passar por todas as telas).
 * **Giro:** Incrementa/Decrementa o valor que está sendo editado (Hora, Alarme, Data, etc).
 
 ### 4. MODO ALARME (Despertando)
-* **O que faz:** A hora do alarme chegou. O Buzzer toca infinito ou o Rádio liga.
+* **O que faz:** A hora do alarme chegou. O Buzzer toca infinito ou o Rádio liga (aplicando o volume digital salvo e usando mute caso configurado em 0).
 * **Toque Curto:** Desliga o alarme (cancela por hoje) e volta ao **MODO RELÓGIO**.
 * **Toque Longo:** Silencia o áudio e entra no **MODO SONECA**.
 * **Giro:** *[Vazio e Bloqueado - Proposital, para evitar desconfigurações acidentais ao tentar desligar de manhã].*

@@ -72,7 +72,7 @@ unsigned long slot_machine_start = 0;
 int encoder_pos_atual;
 uint8_t radio_total_estacoes;
 uint8_t radio_estacao_atual = 12;
-const int SIGNAL_THRESHOLD = 20;
+const int SIGNAL_THRESHOLD = 12;
 
 // Tempo e RGB
 
