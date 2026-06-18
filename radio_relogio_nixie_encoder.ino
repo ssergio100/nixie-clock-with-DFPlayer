@@ -174,6 +174,10 @@ void setup() {
   // O DS1307 só suporta 100kHz! Acelerar para 400kHz pode corromper as leituras ou travar o chip.
   // Como resolvemos o pisca-pisca das válvulas com o "cache do LCD", não precisamos mais do I2C em overclock.
   // Wire.setClock(400000);
+
+  // Inicializa a multiplexação por interrupção via Timer1 (a cada 3ms / 3000 microssegundos)
+  Timer1.initialize(3000);
+  Timer1.attachInterrupt(atualizaNixieISR);
 }
 
 void loop() {
@@ -254,58 +258,41 @@ void loop() {
     atualiza_lcd();
   }
 
-  atualiza(); // Chama a máquina de estados a cada ciclo do loop
+  // A multiplexação agora roda em background via interrupção do Timer1
 }
 
 
 
-unsigned long last_mux_time = 0;
-uint8_t mux_state = 0; 
-
-void atualiza() {
-  unsigned long current_micros = micros();
+void atualizaNixieISR() {
+  // 1. Desliga todos os anodos para fazer o blanking
+  digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
+  digitalWrite(PINO_ANODO_HORA_UNI, LOW);
+  digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
+  digitalWrite(PINO_ANODO_MIN_UNI, LOW);
   
-  if (mux_state % 2 == 0) {
-    // ESTADO: Tubo LIGADO
-    if (current_micros - last_mux_time >= 3000) { // Fica 3ms aceso
-      // Desliga anodos para iniciar tempo morto (blanking)
-      digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
-      digitalWrite(PINO_ANODO_HORA_UNI, LOW);
-      digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
-      digitalWrite(PINO_ANODO_MIN_UNI, LOW);
-      
-      mux_state++;
-      last_mux_time = current_micros;
-    }
-  } else {
-    // ESTADO: Tubo DESLIGADO (Tempo Morto / Blanking para eliminar os fantasmas)
-    if (current_micros - last_mux_time >= 250) { // 250us apagado para os TILs desarmarem
-      mux_state++;
-      if (mux_state > 7) mux_state = 0;
-      
-      // Liga o próximo tubo
-      uint8_t digit = mux_state / 2;
-      
-      // Quando no modo de ajustes, pisca os dígitos a cada 300ms
-      bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
-      
-      if (show_digits) {
-        if (digit == 0 && nixie_hora_dez > 0) {
-          escreve_byte_fast(nixie_hora_dez);
-          digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
-        } else if (digit == 1 && nixie_hora_uni > -1) {
-          escreve_byte_fast(nixie_hora_uni);
-          digitalWrite(PINO_ANODO_HORA_UNI, HIGH);
-        } else if (digit == 2 && nixie_min_dez > -1) {
-          escreve_byte_fast(nixie_min_dez);
-          digitalWrite(PINO_ANODO_MIN_DEZ, HIGH);
-        } else if (digit == 3 && nixie_min_uni > -1) {
-          escreve_byte_fast(nixie_min_uni);
-          digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
-        }
-      }
-      
-      last_mux_time = current_micros;
+  // 2. Aguarda 250 microsegundos de blanking físico para evitar fantasmas
+  delayMicroseconds(250);
+  
+  // 3. Seleciona o próximo dígito
+  static uint8_t digito_ativo = 0;
+  digito_ativo = (digito_ativo + 1) % 4;
+  
+  // 4. Pisca os dígitos a cada 300ms quando estiver em modo setup
+  bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
+  
+  if (show_digits) {
+    if (digito_ativo == 0 && nixie_hora_dez > 0) {
+      escreve_byte_fast(nixie_hora_dez);
+      digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
+    } else if (digito_ativo == 1 && nixie_hora_uni > -1) {
+      escreve_byte_fast(nixie_hora_uni);
+      digitalWrite(PINO_ANODO_HORA_UNI, HIGH);
+    } else if (digito_ativo == 2 && nixie_min_dez > -1) {
+      escreve_byte_fast(nixie_min_dez);
+      digitalWrite(PINO_ANODO_MIN_DEZ, HIGH);
+    } else if (digito_ativo == 3 && nixie_min_uni > -1) {
+      escreve_byte_fast(nixie_min_uni);
+      digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
     }
   }
 }

@@ -18,10 +18,7 @@ void transicao() {
       nixie_hora_dez = (hour % 100) / 10;
       nixie_hora_uni = hour % 10;
 
-      unsigned long start = millis();
-      while (millis() - start < 4) {
-        atualiza();
-      }
+      delay(4);
     }
     
     if (estado_menu == 0) {
@@ -40,10 +37,7 @@ void transicao() {
       tone(PINO_BUZZER, 1500, 100); // Bip discreto a cada hora cheia
 
       // Aguarda 2 segundos para o som tocar, mantendo a multiplexação das Nixies ativas
-      unsigned long start_chime = millis();
-      while (millis() - start_chime < 2000) {
-        atualiza();
-      }
+      delay(2000);
 
       if (radio_ligado) {
         rx.setAudioOutputHighImpedance(false); // Reconecta o rádio à linha de áudio

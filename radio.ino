@@ -32,10 +32,7 @@ void ajustarFrequencia() {
                           rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
                           atualizarDisplay(); 
                           
-                          unsigned long start = millis();
-                          while (millis() - start < 50) {
-                              atualiza();
-                          }
+                          delay(50);
                           steps++;
                       } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
                       rx.setMute(false); // Restaura o áudio ao travar na estação
@@ -52,10 +49,7 @@ void ajustarFrequencia() {
                           rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
                           atualizarDisplay(); 
                           
-                          unsigned long start = millis();
-                          while (millis() - start < 50) {
-                              atualiza();
-                          }
+                          delay(50);
                           steps++;
                       } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
                       rx.setMute(false); // Restaura o áudio ao travar na estação
