@@ -17,8 +17,6 @@ void ajustarFrequencia() {
                 if (volume_radio > 0) volume_radio--;
             }
             rx.setVolume(volume_radio);
-            volume_mp3 = volume_radio * 2;
-            df_volume(volume_mp3);
             atualiza_lcd();
             Serial.print(F("Volume digital: "));
             Serial.println(volume_radio);
