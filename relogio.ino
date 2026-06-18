@@ -11,11 +11,14 @@ void relogio() {
           Serial.println(F(">>> SONECA ACABOU! ACORDANDO <<<"));
           if (alarme_radio) {
               radio_ligado = true;
-              rx.setMute(false);
-              digitalWrite(vcc_amp, LOW);
+              rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
+              int pot_val = analogRead(A6);
+              rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Sincroniza o volume do rádio
+              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
           } else {
               Serial.println(F("Tocando alarme MP3..."));
-              digitalWrite(vcc_amp, LOW); // LIGA O AMPLIFICADOR!
+              rx.setAudioOutputHighImpedance(true); // Garante o rádio desconectado
+              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
               df_volume(25);
               df_loop(1);
           }
@@ -24,10 +27,10 @@ void relogio() {
           int minutos_restantes = (tempo_restante / 1000) / 60;
           int segundos_restantes = (tempo_restante / 1000) % 60;
           
-          h_d = (minutos_restantes < 10) ? 0 : (minutos_restantes / 10);
-          h_u = (minutos_restantes % 10);
-          m_d = (segundos_restantes / 10);
-          m_u = (segundos_restantes % 10);
+          nixie_hora_dez = (minutos_restantes < 10) ? 0 : (minutos_restantes / 10);
+          nixie_hora_uni = (minutos_restantes % 10);
+          nixie_min_dez = (segundos_restantes / 10);
+          nixie_min_uni = (segundos_restantes % 10);
           return; // Retorna para não exibir a hora real!
       }
   }
@@ -45,18 +48,18 @@ void relogio() {
           is_slot_machine = false;
       } else {
           // Gira os números loucamente (muda a cada 50ms)
-          h_d = (millis() / 50) % 10;
-          h_u = ((millis() / 50) + 3) % 10;
-          m_d = ((millis() / 50) + 6) % 10;
-          m_u = ((millis() / 50) + 9) % 10;
+          nixie_hora_dez = (millis() / 50) % 10;
+          nixie_hora_uni = ((millis() / 50) + 3) % 10;
+          nixie_min_dez = ((millis() / 50) + 6) % 10;
+          nixie_min_uni = ((millis() / 50) + 9) % 10;
           return; // Sai da função para não sobrescrever com a hora real
       }
   }
 
   // Se não estiver no modo caça-níqueis ou soneca, exibe a hora real
   // Desliga o zero à esquerda das horas para economizar válvula
-  h_d = (hour < 10) ? -1 : (hour / 10);
-  h_u = (hour % 10);
-  m_d = (min / 10);
-  m_u = (min % 10);
+  nixie_hora_dez = (hour < 10) ? -1 : (hour / 10);
+  nixie_hora_uni = (hour % 10);
+  nixie_min_dez = (min / 10);
+  nixie_min_uni = (min % 10);
 }

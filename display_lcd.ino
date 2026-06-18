@@ -4,19 +4,36 @@ void atualiza_lcd() {
   static char last_linha1[17] = "";
   static char last_linha2[17] = "";
 
-  if (radio_ligado == 1) {
+  if (alarme_tocando) {
+      if (alarme_radio) {
+          strcpy(linha1, "Em alarme: Radio");
+          char freq_buf[6];
+          dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf);
+          snprintf(linha2, sizeof(linha2), "FM %s MHz", freq_buf);
+      } else {
+          strcpy(linha1, "Em alarme: MP3");
+          strcpy(linha2, "Som: Alarme");
+      }
+  } else if (em_soneca) {
+      strcpy(linha1, "Em soneca");
+      long tempo_restante = (long)soneca_end_time - (long)millis();
+      if (tempo_restante < 0) tempo_restante = 0;
+      int minutos_restantes = (tempo_restante / 1000) / 60;
+      int segundos_restantes = (tempo_restante / 1000) % 60;
+      snprintf(linha2, sizeof(linha2), "Tempo: %02d:%02d", minutos_restantes, segundos_restantes);
+  } else if (radio_ligado == 1) {
       // MODO RÁDIO: Exibe informações do Rádio
       char freq_buf[6];
-      dtostrf(freqs[f_atual], 5, 1, freq_buf); // Ex: "106.3" ou " 88.5"
+      dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf); // Ex: "106.3" ou " 88.5"
       
-      const char* modo_str = (f_step == 0) ? "MEM" : ((f_step == 1) ? "SCA" : "LIV");
+      const char* modo_str = (radio_modo_sintonia == 0) ? "MEM" : ((radio_modo_sintonia == 1) ? "SCA" : "LIV");
       snprintf(linha1, sizeof(linha1), "FM %sMHz  %s", freq_buf, modo_str);
       
       const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
       snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
-  } else if (ajuste > 0) {
+  } else if (estado_menu > 0) {
       // MODO SETUP: Menus de Configuração
-      switch (ajuste) {
+      switch (estado_menu) {
           case 1:
               strcpy(linha1, "Ajustar Relogio ");
               snprintf(linha2, sizeof(linha2), "%02d:%02d", hour, min);

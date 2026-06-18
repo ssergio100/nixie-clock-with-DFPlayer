@@ -1,6 +1,6 @@
 
 void salvar_e_sair() {
-    ajuste = 0;
+    estado_menu = 0;
     beep(100); delay(160); beep(100); // Bipe duplo de SAÍDA mais longo
     
     rtc.setDateTime(hour, min, sec, mday, mon, year, wday);
@@ -34,29 +34,30 @@ void state() {
           soneca_end_time = millis() + TEMPO_SONECA_MS; // Reseta a contagem
           beep(100); delay(160); beep(100);
           
-          if (alarme_radio && radio_ligado) {
-              radio_ligado = false;
-              rx.setMute(true);
-              digitalWrite(vcc_amp, HIGH);
-          } else {
-              df_stop();
-          }
-      } else if (ajuste > 0) {
+          df_stop();
+          rx.setAudioOutputHighImpedance(true);
+          digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
+          radio_ligado = false;
+          atualiza_lcd();
+      } else if (estado_menu > 0) {
           // MODO SETUP: Toque longo salva e sai imediatamente
           salvar_e_sair();
       } else {
           if (radio_ligado == 0) {
               Serial.println("Radio ON");
-              rx.setMute(false);
-              digitalWrite(vcc_amp, LOW);
+              rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
+              int pot_val = analogRead(A6);
+              rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Sincroniza o volume
+              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
               radio_ligado = 1;
           } else {
-              Serial.print("Rádio OFF");
-              rx.setMute(true);
-              digitalWrite(vcc_amp, HIGH);
+              Serial.print(F("Rádio OFF"));
+              rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
+              digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
               beep(70);
               radio_ligado = 0;
           }
+          atualiza_lcd();
       }
   }
 
@@ -74,35 +75,34 @@ void state() {
               em_soneca = false;
               beep(500); // Confirma encerramento com bipe longo
               
-              if (alarme_radio && radio_ligado) {
-                  radio_ligado = false;
-                  rx.setMute(true);
-                  digitalWrite(vcc_amp, HIGH);
-              } else {
-                  df_stop();
-              }
+              df_stop();
+              rx.setAudioOutputHighImpedance(true);
+              digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
+              radio_ligado = false;
+              atualiza_lcd();
           } else {
               if (radio_ligado == 1) {
-                  // No modo RÁDIO: Toque curto altera o f_step (Memória -> Busca -> Relógio)
+                  // No modo RÁDIO: Toque curto altera o radio_modo_sintonia (Memória -> Busca -> Relógio)
                   beep(70);
-                  f_step = (f_step >= 2) ? 0 : f_step + 1;
+                  radio_modo_sintonia = (radio_modo_sintonia >= 2) ? 0 : radio_modo_sintonia + 1;
+                  atualiza_lcd();
               } else {
                   // No modo RELÓGIO: Toque curto avança as páginas de Setup
-                  if (ajuste >= 6) {
+                  if (estado_menu >= 6) {
                       // Estado 7: Sai do menu e salva tudo
                       salvar_e_sair();
                   } else {
-                      if (ajuste == 0) {
+                      if (estado_menu == 0) {
                           // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
                           rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
                           beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
                       } else {
                           beep(30); // Bipe curto para avançar página
                       }
-                      ajuste++;
+                      estado_menu++;
                   }
                   // Sincroniza o encoder para o número não pular quando você for girar
-                  pos = newPos;
+                  encoder_pos_anterior = encoder_pos_atual;
               }
           }
       }

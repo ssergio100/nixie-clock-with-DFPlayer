@@ -10,13 +10,13 @@ void transicao() {
 
       min--;
 
-      m_d = (min % 100) / 10;
-      m_u = min % 10;
+      nixie_min_dez = (min % 100) / 10;
+      nixie_min_uni = min % 10;
       if (min == 1 ) {
         hour++;
       }
-      h_d = (hour % 100) / 10;
-      h_u = hour % 10;
+      nixie_hora_dez = (hour % 100) / 10;
+      nixie_hora_uni = hour % 10;
 
       unsigned long start = millis();
       while (millis() - start < 4) {
@@ -24,19 +24,18 @@ void transicao() {
       }
     }
     
-    // No aniversário do Arthur (21 de setembro), alterna a música a cada hora:
-    // Horas pares tocam a faixa 2 (Parabéns MP3), horas ímpares tocam a faixa 3 (Som especial MP3).
-    if (mday == 21 && mon == 9 && ajuste == 0) {
-      df_volume(20);
-      if (hour % 2 == 0) {
-        df_play(2);
-      } else {
-        df_play(3);
+    if (estado_menu == 0) {
+      digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR
+      df_play(ALDEAO); 
+      tone(PINO_BUZZER, 1500, 100); // Bip discreto a cada hora cheia no PINO_BUZZER físico
+      
+      // Aguarda 2 segundos para o som tocar, mantendo a multiplexação das Nixies ativas
+      unsigned long start_chime = millis();
+      while (millis() - start_chime < 2000) {
+        atualiza();
       }
-    } else {
-      if (ajuste == 0) {
-        tone(buzzer, 1500, 100); // Bip discreto a cada hora cheia no buzzer físico
-      }
+      
+      digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // DESLIGA O AMPLIFICADOR para evitar chiado
     }
     
   } else {

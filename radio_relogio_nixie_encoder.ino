@@ -7,41 +7,39 @@
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 #include "freqs.h"
-
-#include <DFRobotDFPlayerMini.h>
+#include <TimerOne.h>
 
 ErriezDS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial dfSerial(11, 10); // RX (Pino 11), TX (Pino 10) - Corrigido cruzamento
-DFRobotDFPlayerMini myDFPlayer;
 
 RDA5807 rx;
 
-#define set_h_d 14  //~  14 A0
-#define set_h_u 15  //~  15 A1
-#define set_m_d 17  //~  17 A3
-#define set_m_u 12
-#define PIN_IN1 2
-#define PIN_IN2 3
-#define SW 4
-#define vcc_amp A2
-#define buzzer 13
+#define PINO_ANODO_HORA_DEZ 14  //~  14 A0
+#define PINO_ANODO_HORA_UNI 15  //~  15 A1
+#define PINO_ANODO_MIN_DEZ 17  //~  17 A3
+#define PINO_ANODO_MIN_UNI 12
+#define PINO_ENCODER_A 2
+#define PINO_ENCODER_B 3
+#define PINO_BOTAO_ENCODER 4
+#define PINO_VCC_AMPLIFICADOR A2
+#define PINO_BUZZER 13
 
-Button myBtn(SW);
+Button myBtn(PINO_BOTAO_ENCODER);
 
-int8_t h_d;  //dezena da hora
-int8_t h_u;  //unidade da hora
-int8_t m_d;  //dezena dos minutos
-int8_t m_u;  //unidade dos minutos
+int8_t nixie_hora_dez;  //dezena da hora
+int8_t nixie_hora_uni;  //unidade da hora
+int8_t nixie_min_dez;  //dezena dos minutos
+int8_t nixie_min_uni;  //unidade dos minutos
 
 
-const uint8_t sends[] = { 5, 6, 7, 8 };
-#define LED_BASE 9
+const uint8_t pinos_bcd_k155id1[] = { 5, 6, 7, 8 };
+#define PINO_LED_BASE 9
 
 // Variáveis de controle e Alarme
-uint8_t ajuste = 0; // 0 = Relógio Normal, 1-5 = Menus, 6 = Salvar/Sair
-uint8_t f_step = 0;
-int pos = 0;
+uint8_t estado_menu = 0; // 0 = Relógio Normal, 1-5 = Menus, 6 = Salvar/Sair
+uint8_t radio_modo_sintonia = 0;
+int encoder_pos_anterior = 0;
 bool radio_ligado = false;
 
 uint8_t alarme_hora = 6;
@@ -51,6 +49,10 @@ bool alarme_radio = false; // 0 = Buzzer, 1 = Rádio
 bool alarme_fds = false;
 
 // Estado do Alarme
+// Mapeamento de Sons (SD Card)
+const uint16_t SOM_ALARME = 1;     // Faixa 1 do SD (Alarme padrão)
+const uint16_t ALDEAO = 2;         // Faixa 4 do SD (Aldeão)
+
 bool alarme_tocando = false;
 bool em_soneca = false;
 unsigned long soneca_end_time = 0;
@@ -61,13 +63,13 @@ bool is_slot_machine = false;
 unsigned long slot_machine_start = 0;
 
 // Frequência e posicionamento
-int newPos;
-uint8_t f_size;
-uint8_t f_atual = 12;
+int encoder_pos_atual;
+uint8_t radio_total_estacoes;
+uint8_t radio_estacao_atual = 12;
 const int SIGNAL_THRESHOLD = 5;
 
 // Tempo e RGB
-int rgb_time = 1500;
+
 
 // Estrutura de tempo
 uint8_t hour, min, sec, mday, mon, wday;
@@ -77,10 +79,10 @@ uint16_t year;
 
 bool pressionadoLongo = false;
 unsigned long falhas = 0;
-unsigned long ms, msLast;
+unsigned long tempo_atual_ms, tempo_ultima_leitura_rtc;
 const unsigned long LONG_PRESS = 700;
-const unsigned long MSLERTIME = 1000;
-unsigned long millisTarefa1;  // Inicializar depois no setup()
+const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
+
 
 RotaryEncoder *encoder = nullptr;
 
@@ -88,19 +90,19 @@ RotaryEncoder *encoder = nullptr;
 void setup() {
   Serial.begin(9600);
 
-  pinMode(buzzer, OUTPUT);
-  pinMode(vcc_amp, OUTPUT);
-  pinMode(LED_BASE, OUTPUT);
+  pinMode(PINO_BUZZER, OUTPUT);
+  pinMode(PINO_VCC_AMPLIFICADOR, OUTPUT);
+  pinMode(PINO_LED_BASE, OUTPUT);
 
-  pinMode(sends[0], OUTPUT);
-  pinMode(sends[1], OUTPUT);
-  pinMode(sends[2], OUTPUT);
-  pinMode(sends[3], OUTPUT);
+  pinMode(pinos_bcd_k155id1[0], OUTPUT);
+  pinMode(pinos_bcd_k155id1[1], OUTPUT);
+  pinMode(pinos_bcd_k155id1[2], OUTPUT);
+  pinMode(pinos_bcd_k155id1[3], OUTPUT);
 
-  pinMode(set_h_d, OUTPUT);
-  pinMode(set_h_u, OUTPUT);
-  pinMode(set_m_d, OUTPUT);
-  pinMode(set_m_u, OUTPUT);
+  pinMode(PINO_ANODO_HORA_DEZ, OUTPUT);
+  pinMode(PINO_ANODO_HORA_UNI, OUTPUT);
+  pinMode(PINO_ANODO_MIN_DEZ, OUTPUT);
+  pinMode(PINO_ANODO_MIN_UNI, OUTPUT);
 
   Wire.begin();
 
@@ -114,8 +116,8 @@ void setup() {
   //      }
 
 
-  rtc.setSquareWave(SquareWave1Hz); // Ativa o pulso de 1Hz no pino SQW para piscar o LED
-  digitalWrite(vcc_amp, HIGH);  //amplificador desligado
+  rtc.setSquareWave(SquareWaveDisable); // SQW em LOW permanente → LED do RTC sempre aceso
+  digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);  //amplificador desligado
   myBtn.begin();
   dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
   
@@ -123,31 +125,29 @@ void setup() {
   Serial.println(F("Aguardando 2s para boot do DFPlayer..."));
   delay(2000);
 
-  // Inicializa a biblioteca DFRobotDFPlayerMini
-  if (!myDFPlayer.begin(dfSerial, true, false)) {
-    Serial.println(F("Falha ao inicializar DFPlayer pela biblioteca."));
-  } else {
-    Serial.println(F("DFPlayer Mini Online pela biblioteca."));
-  }
+  // Inicialização raiz - O DFPlayer não envia handshake confiável, apenas damos o tempo.
+  Serial.println(F("DFPlayer Mini Online (Modo Nativo)."));
   
   // Lê volume inicial do potenciômetro e define silencioso
   int pot_val = analogRead(A6);
   int vol_mp3 = map(pot_val, 0, 1023, 0, 30);
-  myDFPlayer.volume(vol_mp3);
+  df_volume(vol_mp3);
   delay(100);
-  myDFPlayer.stop();
+  df_stop();
 
+  Serial.println(F("Inicializando Rádio RDA5807..."));
   rx.setup();
   rx.setVolume(5); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
   rx.setSoftmute(false); // Desativa o mute gradual para agilizar a sintonização
-  rx.setMute(false);
+  rx.setAudioOutputHighImpedance(true); // Coloca as saídas em alta impedância (desconecta da linha)
+  rx.setVolume(0);   // Deixa no mudo via software (volume zero)
   rx.setMono(true); // Mono garante sinal mais limpo em transmissões fracas
-  rx.setFrequency((uint16_t)(freqs[f_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
+  rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
 
 
-  encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::TWO03);
-  attachInterrupt(digitalPinToInterrupt(PIN_IN1), checkPosition, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(PIN_IN2), checkPosition, CHANGE);
+  encoder = new RotaryEncoder(PINO_ENCODER_A, PINO_ENCODER_B, RotaryEncoder::LatchMode::TWO03);
+  attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_B), checkPosition, CHANGE);
 
   rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
 
@@ -165,7 +165,7 @@ void setup() {
   alarme_radio = EEPROM.read(3) == 1;
   alarme_fds = EEPROM.read(4) == 1;
 
-  f_size = getFreqsSize();
+  radio_total_estacoes = getFreqsSize();
 
   // O DS1307 só suporta 100kHz! Acelerar para 400kHz pode corromper as leituras ou travar o chip.
   // Como resolvemos o pisca-pisca das válvulas com o "cache do LCD", não precisamos mais do I2C em overclock.
@@ -173,14 +173,14 @@ void setup() {
 }
 
 void loop() {
-  newPos = encoder->getPosition();
+  encoder_pos_atual = encoder->getPosition();
 
-  ms = millis();
+  tempo_atual_ms = millis();
   myBtn.read();
   state();
 
-  if ((ms - msLast) >= MSLERTIME) {
-    if (ajuste == 0) { // Só puxa a hora do chip físico se não estivermos no menu
+  if ((tempo_atual_ms - tempo_ultima_leitura_rtc) >= INTERVALO_ATUALIZACAO_RTC) {
+    if (estado_menu == 0) { // Só puxa a hora do chip físico se não estivermos no menu
       if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
         Serial.println(F("Read date/time failed"));
         ++falhas;
@@ -201,16 +201,19 @@ void loop() {
                     if (!radio_ligado) {
                         Serial.println(F("Ligando rádio para o alarme..."));
                         radio_ligado = true;
-                        rx.setMute(false); // Liga o áudio do rádio
-                        digitalWrite(vcc_amp, LOW);
+                        rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
+                        int pot_val = analogRead(A6);
+                        rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Aplica volume atual
+                        digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
                     }
                 } else {
                     Serial.println(F("Tocando alarme MP3..."));
-                    // O rádio precisa estar mudo para não misturar áudios
-                    if (radio_ligado) rx.setMute(true); 
-                    digitalWrite(vcc_amp, LOW); // LIGA O AMPLIFICADOR! (Faltava isso)
-                    df_volume(25); // Volume alto para acordar
-                    df_loop(1); // Toca a primeira faixa do SD em repetição
+                    rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
+                    radio_ligado = false; // Garante a sincronia do estado
+                    digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
+                    df_play(SOM_ALARME); // Toca o alarme PRIMEIRO (clones ignoram volume se estiverem parados)
+                    delay(150); // Dá tempo do clone carregar o MP3 na memória
+                    df_volume(25); // Sobe o volume agora que está tocando
                 }
             }
         }
@@ -221,17 +224,16 @@ void loop() {
       }
     }
     transicao();
-    atualiza_lcd(); // Atualiza a tela 16x2 sempre que lemos o RTC
-    msLast = ms;
+    tempo_ultima_leitura_rtc = tempo_atual_ms;
   }
   
-  if (ajuste > 0) {
+  if (estado_menu > 0) {
     run_setup_menu();
   } else {
     if (radio_ligado) {
       radio();
     } else {
-      rgb_time = 1000; // 1000ms aceso, 1000ms apagado = 1 ciclo a cada 2 segundos (0.5Hz)
+
       rgb(18, 20, 0);  // laranja
       relogio();
     }
@@ -239,8 +241,8 @@ void loop() {
   
   // --- LEITURA DO POTENCIÔMETRO (A6) PARA VOLUME ---
   static unsigned long last_vol_read_orig = 0;
-  if (ms - last_vol_read_orig > 200) {
-      last_vol_read_orig = ms;
+  if (tempo_atual_ms - last_vol_read_orig > 200) {
+      last_vol_read_orig = tempo_atual_ms;
       int pot_val = analogRead(A6);
       
       // O potenciômetro físico já é Logarítmico (Audio Taper)! 
@@ -261,6 +263,14 @@ void loop() {
       }
   }
 
+  // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
+  static unsigned long tempo_ultimo_lcd = 0;
+  unsigned long intervalo_lcd = (estado_menu > 0) ? 50 : 1000;
+  if (tempo_atual_ms - tempo_ultimo_lcd >= intervalo_lcd) {
+    tempo_ultimo_lcd = tempo_atual_ms;
+    atualiza_lcd();
+  }
+
   atualiza(); // Chama a máquina de estados a cada ciclo do loop
 }
 
@@ -276,10 +286,10 @@ void atualiza() {
     // ESTADO: Tubo LIGADO
     if (current_micros - last_mux_time >= 3000) { // Fica 3ms aceso
       // Desliga anodos para iniciar tempo morto (blanking)
-      digitalWrite(set_h_d, LOW);
-      digitalWrite(set_h_u, LOW);
-      digitalWrite(set_m_d, LOW);
-      digitalWrite(set_m_u, LOW);
+      digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
+      digitalWrite(PINO_ANODO_HORA_UNI, LOW);
+      digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
+      digitalWrite(PINO_ANODO_MIN_UNI, LOW);
       
       mux_state++;
       last_mux_time = current_micros;
@@ -293,18 +303,23 @@ void atualiza() {
       // Liga o próximo tubo
       uint8_t digit = mux_state / 2;
       
-      if (digit == 0 && h_d > 0) {
-        escreve_byte_fast(h_d);
-        digitalWrite(set_h_d, HIGH);
-      } else if (digit == 1 && h_u > -1) {
-        escreve_byte_fast(h_u);
-        digitalWrite(set_h_u, HIGH);
-      } else if (digit == 2 && m_d > -1) {
-        escreve_byte_fast(m_d);
-        digitalWrite(set_m_d, HIGH);
-      } else if (digit == 3 && m_u > -1) {
-        escreve_byte_fast(m_u);
-        digitalWrite(set_m_u, HIGH);
+      // Quando no modo de ajustes, pisca os dígitos a cada 300ms
+      bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
+      
+      if (show_digits) {
+        if (digit == 0 && nixie_hora_dez > 0) {
+          escreve_byte_fast(nixie_hora_dez);
+          digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
+        } else if (digit == 1 && nixie_hora_uni > -1) {
+          escreve_byte_fast(nixie_hora_uni);
+          digitalWrite(PINO_ANODO_HORA_UNI, HIGH);
+        } else if (digit == 2 && nixie_min_dez > -1) {
+          escreve_byte_fast(nixie_min_dez);
+          digitalWrite(PINO_ANODO_MIN_DEZ, HIGH);
+        } else if (digit == 3 && nixie_min_uni > -1) {
+          escreve_byte_fast(nixie_min_uni);
+          digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
+        }
       }
       
       last_mux_time = current_micros;
@@ -313,24 +328,26 @@ void atualiza() {
 }
 
 void escreve_byte_fast(byte x) {
-  if (x & 0b00000001) digitalWrite(sends[0], HIGH); else digitalWrite(sends[0], LOW);
-  if (x & 0b00000010) digitalWrite(sends[1], HIGH); else digitalWrite(sends[1], LOW);
-  if (x & 0b00000100) digitalWrite(sends[2], HIGH); else digitalWrite(sends[2], LOW);
-  if (x & 0b00001000) digitalWrite(sends[3], HIGH); else digitalWrite(sends[3], LOW);
+  if (x & 0b00000001) digitalWrite(pinos_bcd_k155id1[0], HIGH); else digitalWrite(pinos_bcd_k155id1[0], LOW);
+  if (x & 0b00000010) digitalWrite(pinos_bcd_k155id1[1], HIGH); else digitalWrite(pinos_bcd_k155id1[1], LOW);
+  if (x & 0b00000100) digitalWrite(pinos_bcd_k155id1[2], HIGH); else digitalWrite(pinos_bcd_k155id1[2], LOW);
+  if (x & 0b00001000) digitalWrite(pinos_bcd_k155id1[3], HIGH); else digitalWrite(pinos_bcd_k155id1[3], LOW);
 }
 
 
 void rgb(int R, int G, int B) {
-  // Ignoramos G e B, pois agora o hardware usa apenas o pino LED_BASE (Pino 9).
-  // A cor será definida fisicamente por resistores, então R atua apenas como intensidade.
-  if ((millis() - millisTarefa1) < rgb_time) {
-    analogWrite(LED_BASE, R);
+  // LED simples com cátodo no pino 9: LOW = aceso, HIGH = apagado.
+  // Pisca 2s/2s apenas no modo relógio. Apagado nos demais modos.
+  if (estado_menu == 0 && !radio_ligado) {
+    static unsigned long ultimo_toggle = 0;
+    static bool led_aceso = true;
+    if (millis() - ultimo_toggle >= 2000) {
+      ultimo_toggle = millis();
+      led_aceso = !led_aceso;
+      digitalWrite(PINO_LED_BASE, led_aceso ? LOW : HIGH);
+    }
   } else {
-    analogWrite(LED_BASE, 0);
-  }
-
-  if ((millis() - millisTarefa1) > rgb_time * 2) {
-    millisTarefa1 = millis();
+    digitalWrite(PINO_LED_BASE, HIGH); // Apagado fora do modo relógio
   }
 }
 
@@ -340,9 +357,9 @@ void debug() {
   Serial.print("Falhas: ");
   Serial.println(falhas);
   Serial.print("Ajuste: ");
-  Serial.println(ajuste);
-  Serial.print("f_step: ");
-  Serial.println(f_step);
+  Serial.println(estado_menu);
+  Serial.print("radio_modo_sintonia: ");
+  Serial.println(radio_modo_sintonia);
   Serial.println("----------------------------");
 }
 void checkPosition() {

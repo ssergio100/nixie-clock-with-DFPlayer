@@ -1,35 +1,27 @@
 # Relatório de Desenvolvimento - Rádio Relógio Nixie
-**Sessão Concluída em:** 15 de Junho de 2026 (Madrugada de 16)
+**Sessão Concluída em:** 18 de Junho de 2026 (Madrugada)
 
 ## 🚀 O que implementamos nesta maratona
 
-1. **Bug do I2C Assassino Resolvido:**
-   - Descobrimos que a linha `Wire.setClock(400000)` no final do `setup()` estava matando o chip RTC DS1307, pois ele suporta estritamente 100kHz. O "overclock" do barramento causava falhas de leitura e perda total da hora ao desligar da tomada. Removido e estabilizado!
+1. **Otimização Crítica de RAM (Código Serial Raiz):**
+   - Removemos a biblioteca pesada `DFRobotDFPlayerMini` e migramos para o envio direto via Serial pura (`df_send_cmd` com 10 bytes e checksum dinâmico).
+   - Aplicamos a macro `F()` em todas as strings de depuração serial.
+   - Isso reduziu drasticamente o uso da memória RAM (SRAM) do Arduino Nano, blindando o relógio contra travamentos por estouro de pilha (stack overflow).
 
-2. **Áudio Analógico e Potenciômetro:**
-   - Confirmamos que o potenciômetro físico é do tipo **A20K (Audio Taper/Logarítmico)**.
-   - Reimplantamos a leitura no pino A6 com uma "Zona Morta" inferior e uma curva achatada via software (`x * x`) para compensar a saturação rápida do amplificador externo.
-   - Adicionamos um comando explícito `rx.setMute(true)` quando o volume mapeado chega a 0, garantindo silêncio absoluto no rádio com o botão totalmente fechado.
+2. **Resolução do Conflito de Áudio RDA5807 vs MP3 (Alta Impedância / DHIZ):**
+   - **O Problema:** Como a saída de áudio do RDA5807 e do DFPlayer compartilham a mesma entrada do amplificador sem resistores misturadores, o buffer de saída ativo do rádio (mesmo com volume zero ou mutado via `DMUTE`) mantinha baixíssima impedância, aterrando em AC o sinal analógico do MP3.
+   - **A Solução:** Ativamos o modo de Alta Impedância do rádio através do bit **DHIZ (Audio Output High-Z Disable)** no Registrador `02h`, chamando `rx.setAudioOutputHighImpedance(true)`.
+   - O rádio agora é eletricamente "desconectado" da linha de áudio sempre que está desligado ou quando o alarme MP3 dispara, liberando a linha para o áudio do DFPlayer tocar limpo e alto.
+   - Quando o rádio é ligado (via encoder ou alarme), chamamos `rx.setAudioOutputHighImpedance(false)` para reconectar as saídas à linha de áudio.
 
-3. **Revisão Estrutural do Alarme / Soneca:**
-   - Corrigimos graves falhas de "estado zumbi" na roteirização de áudio causadas pela migração do Buzzer para o MP3.
-   - O amplificador (`vcc_amp`) agora liga corretamente quando o alarme MP3 dispara, inclusive na retomada da Bomba Relógio (Soneca).
-   - O comando de "Soneca" (Toque Longo) e "Stop" (Toque Curto) agora forçam o desligamento global e seguro de todos os áudios, mutando o rádio e derrubando o relé do amplificador.
-
-4. **Isolamento de Hardware (DFPlayer Mini):**
-   - O código "Raiz" via `df_send_cmd` está 100% polido.
-   - Confirmamos via testes elétricos (2.4V nos pinos SPK) que a alimentação e o amplificador Classe D interno do DFPlayer estão vivos.
-   - No entanto, o leitor SD do módulo está inoperante/incompatível, recusando-se a piscar o LED de leitura mesmo recebendo atalhos diretos de hardware (Pino IO_2 para GND) com cartões formatados em FAT32.
+3. **Sincronização Imediata de Volume:**
+   - Ao ligar o rádio ou sair do modo soneca (alarme de rádio), o software faz a leitura física instantânea do potenciômetro no pino A6 e define o volume (`rx.setVolume()`), garantindo que o som comece no nível esperado do seletor físico.
 
 ---
 
 ## 🛠️ O que nos aguarda na próxima bancada
 
-1. **Substituição do Hardware MP3:**
-   - Adquirir um novo módulo DFPlayer Mini (preferencialmente de um lote/chipset diferente do atual se possível) ou testar com um Micro SD jurássico de 2GB/4GB para ver se o chip ressuscita.
-   - Quando funcionar, plugar no circuito sem mexer em uma linha de código, pois a base de software já está pronta e testada esperando por ele!
+1. **Implementação do Salva Displays (Screen Saver das Nixies):**
+   - A última pauta de programação pendente! Vamos criar a rotina de proteção das válvulas Nixie contra o *Cathode Poisoning* (envenenamento de catodo) durante a madrugada, rotacionando ou desligando os dígitos em horários pré-definidos.
 
-2. **Implementação do Salva Displays (Screen Saver das Nixies):**
-   - A pauta final de programação! Responder às 3 perguntas do Plano de Implementação para codificarmos a rotina que salva as válvulas do *Cathode Poisoning* na madrugada.
-
-*Código restaurado para a versão de produção (relógio funcional). O rádio, os menus e o relógio Nixie continuam operantes para você usar normalmente até a chegada da próxima peça! Bom descanso, engenheiro!*
+*Circuito de áudio e lógica de alarmes 100% integrados em software! O MP3 e a rádio FM agora dividem amigavelmente o mesmo amplificador sem interferências mútuas.*

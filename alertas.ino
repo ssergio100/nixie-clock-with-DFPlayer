@@ -1,14 +1,14 @@
 void preee(int m, int t) {
   for (int v = 0; v <= m; v++) {
     rgb(24, 0, 26);
-    tone(buzzer, 700);
+    tone(PINO_BUZZER, 700);
     
     unsigned long start = millis();
     while (millis() - start < (unsigned long)t) {
       atualiza();
     }
     
-    noTone(buzzer);
+    noTone(PINO_BUZZER);
     
     start = millis();
     while (millis() - start < (unsigned long)t) {
@@ -18,5 +18,5 @@ void preee(int m, int t) {
 }
 
 void beep(int t) {
-  tone(buzzer, 300, t);
+  tone(PINO_BUZZER, 300, t);
 }
