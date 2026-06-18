@@ -149,7 +149,7 @@ void setup() {
   rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
 
 
-  encoder = new RotaryEncoder(PINO_ENCODER_A, PINO_ENCODER_B, RotaryEncoder::LatchMode::FOUR3);
+  encoder = new RotaryEncoder(PINO_ENCODER_B,PINO_ENCODER_A, RotaryEncoder::LatchMode::FOUR3);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_B), checkPosition, CHANGE);
 
@@ -211,6 +211,11 @@ void loop() {
                         radio_ligado = true;
                         rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
                         rx.setVolume(volume_radio); // Aplica volume digital configurado (nível 5 fixo)
+                        if (volume_radio == 0) {
+                            rx.setMute(true);
+                        } else {
+                            rx.setMute(false);
+                        }
                         digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
                     }
                 } else {

@@ -17,6 +17,15 @@ void ajustarFrequencia() {
                 if (volume_radio > 0) volume_radio--;
             }
             rx.setVolume(volume_radio);
+            
+            // Mute de verdade no volume zero para evitar vazamento analógico
+            if (volume_radio == 0) {
+                rx.setMute(true);
+            } else {
+                rx.setMute(false);
+            }
+
+            atualizarDisplay(); // Atualiza a exibição Nixie imediatamente
             atualiza_lcd();
             Serial.print(F("Volume digital: "));
             Serial.println(volume_radio);
@@ -68,14 +77,19 @@ void ajustarFrequencia() {
 }
 
 void atualizarDisplay() {
-
-    if (radio_modo_sintonia == 2) {
+    if (radio_controla_volume) {
+        rgb(18, 0, 20); // Muda o LED base para Roxo/Lilás como feedback visual de volume
+        int sinal = rx.getRssi();
+        nixie_hora_dez = (sinal < 10) ? -1 : (sinal / 10);
+        nixie_hora_uni = sinal % 10;
+        nixie_min_dez = (volume_radio < 10) ? 0 : (volume_radio / 10);
+        nixie_min_uni = volume_radio % 10;
+    } else if (radio_modo_sintonia == 2) {
         rgb(18, 20, 0);
         nixie_hora_dez = (hour % 100) / 10;
         nixie_hora_uni = hour % 10;
         nixie_min_dez = (min % 100) / 10;
         nixie_min_uni = min % 10;
-
     } else {
         rgb(0, 0, 0);
         char buf[10];

@@ -48,6 +48,11 @@ void state() {
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
               radio_controla_volume = false; // Inicia sempre no modo sintonia (SCA)
               rx.setVolume(volume_radio); // Define o volume digital configurado (nível 5 fixo)
+              if (volume_radio == 0) {
+                  rx.setMute(true);
+              } else {
+                  rx.setMute(false);
+              }
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
               radio_ligado = 1;
           } else {
