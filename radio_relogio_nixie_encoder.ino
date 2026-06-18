@@ -72,7 +72,7 @@ unsigned long slot_machine_start = 0;
 int encoder_pos_atual;
 uint8_t radio_total_estacoes;
 uint8_t radio_estacao_atual = 12;
-const int SIGNAL_THRESHOLD = 5;
+const int SIGNAL_THRESHOLD = 20;
 
 // Tempo e RGB
 
@@ -149,7 +149,7 @@ void setup() {
   rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
 
 
-  encoder = new RotaryEncoder(PINO_ENCODER_A, PINO_ENCODER_B, RotaryEncoder::LatchMode::TWO03);
+  encoder = new RotaryEncoder(PINO_ENCODER_A, PINO_ENCODER_B, RotaryEncoder::LatchMode::FOUR3);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_B), checkPosition, CHANGE);
 
