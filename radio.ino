@@ -10,58 +10,68 @@ void ajustarFrequencia() {
         int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
         encoder_pos_anterior = encoder_pos_atual;
 
-        if (dir < 0) { // Girou para direita (Avança frequência)
-              if (radio_modo_sintonia == 1 || radio_modo_sintonia == 2) {
-                  rx.setMute(true); // Silencia o rádio durante a busca
-                  int steps = 0;
-                  do {
-                      freqs[radio_estacao_atual] += 0.1;
-                      if (freqs[radio_estacao_atual] > 107.90) freqs[radio_estacao_atual] = 76.10;
-                      rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
-                      atualizarDisplay(); 
-                      
-                      unsigned long start = millis();
-                      while (millis() - start < 50) {
-                          atualiza();
-                      }
-                      steps++;
-                  } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
-                  rx.setMute(false); // Restaura o áudio ao travar na estação
-              } else {
-                  radio_estacao_atual = (radio_estacao_atual < radio_total_estacoes) ? radio_estacao_atual + 1 : 0;
-              }
-        } else { // Girou para esquerda (Recua frequência)
-              if (radio_modo_sintonia == 1 || radio_modo_sintonia == 2) {
-                  rx.setMute(true); // Silencia o rádio durante a busca
-                  int steps = 0;
-                  do {
-                      freqs[radio_estacao_atual] -= 0.1;
-                      if (freqs[radio_estacao_atual] < 76.10) freqs[radio_estacao_atual] = 107.90;
-                      rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
-                      atualizarDisplay(); 
-                      
-                      unsigned long start = millis();
-                      while (millis() - start < 50) {
-                          atualiza();
-                      }
-                      steps++;
-                  } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
-                  rx.setMute(false); // Restaura o áudio ao travar na estação
-              } else {
-                  radio_estacao_atual = (radio_estacao_atual > 0) ? radio_estacao_atual - 1 : radio_total_estacoes - 1;
-              }
+        if (radio_controla_volume) {
+            if (dir < 0) { // Girou para direita (Aumenta volume)
+                if (volume_radio < 15) volume_radio++;
+            } else { // Girou para esquerda (Diminui volume)
+                if (volume_radio > 0) volume_radio--;
+            }
+            rx.setVolume(volume_radio);
+            volume_mp3 = volume_radio * 2;
+            df_volume(volume_mp3);
+            atualiza_lcd();
+            Serial.print(F("Volume digital: "));
+            Serial.println(volume_radio);
+        } else {
+            // Lógica original de sintonia do rádio
+            if (dir < 0) { // Girou para direita (Avança frequência)
+                  if (radio_modo_sintonia == 1 || radio_modo_sintonia == 2) {
+                      rx.setMute(true); // Silencia o rádio durante a busca
+                      int steps = 0;
+                      do {
+                          freqs[radio_estacao_atual] += 0.1;
+                          if (freqs[radio_estacao_atual] > 107.90) freqs[radio_estacao_atual] = 76.10;
+                          rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
+                          atualizarDisplay(); 
+                          
+                          unsigned long start = millis();
+                          while (millis() - start < 50) {
+                              atualiza();
+                          }
+                          steps++;
+                      } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
+                      rx.setMute(false); // Restaura o áudio ao travar na estação
+                  } else {
+                      radio_estacao_atual = (radio_estacao_atual < radio_total_estacoes) ? radio_estacao_atual + 1 : 0;
+                  }
+            } else { // Girou para esquerda (Recua frequência)
+                  if (radio_modo_sintonia == 1 || radio_modo_sintonia == 2) {
+                      rx.setMute(true); // Silencia o rádio durante a busca
+                      int steps = 0;
+                      do {
+                          freqs[radio_estacao_atual] -= 0.1;
+                          if (freqs[radio_estacao_atual] < 76.10) freqs[radio_estacao_atual] = 107.90;
+                          rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
+                          atualizarDisplay(); 
+                          
+                          unsigned long start = millis();
+                          while (millis() - start < 50) {
+                              atualiza();
+                          }
+                          steps++;
+                      } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 320);
+                      rx.setMute(false); // Restaura o áudio ao travar na estação
+                  } else {
+                      radio_estacao_atual = (radio_estacao_atual > 0) ? radio_estacao_atual - 1 : radio_total_estacoes - 1;
+                  }
+            }
+            int sg =  rx.getRssi();
+            Serial.println(sg);
+            rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
+            atualiza_lcd();
+            Serial.println("Freq.:");
+            Serial.println(freqs[radio_estacao_atual]);
         }
-        int sg =  rx.getRssi();
-         Serial.println(sg);
-        // if(sg >=4){
-        //     rfm.setMuted(0);
-        // } else {
-        //     rfm.setMuted(1);
-        // }
-        rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100));
-        atualiza_lcd();
-        Serial.println("Freq.:");
-        Serial.println(freqs[radio_estacao_atual]);
     }
 }
 

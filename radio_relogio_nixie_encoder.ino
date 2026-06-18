@@ -38,9 +38,15 @@ const uint8_t pinos_bcd_k155id1[] = { 5, 6, 7, 8 };
 
 // Variáveis de controle e Alarme
 uint8_t estado_menu = 0; // 0 = Relógio Normal, 1-5 = Menus, 6 = Salvar/Sair
-uint8_t radio_modo_sintonia = 0;
+uint8_t radio_modo_sintonia = 1; // Fixo no modo Scanner (1) por padrão
 int encoder_pos_anterior = 0;
 bool radio_ligado = false;
+
+// Variáveis para controle de volume digital via encoder (remoção do potenciômetro)
+bool radio_controla_volume = false; // true = encoder altera volume, false = altera frequência (sintonia)
+int volume_radio = 5;               // Volume padrão do rádio (escala 0-15)
+int volume_mp3 = 10;                // Volume padrão do MP3 (escala 0-30)
+
 
 uint8_t alarme_hora = 6;
 uint8_t alarme_min = 0;
@@ -128,10 +134,8 @@ void setup() {
   // Inicialização raiz - O DFPlayer não envia handshake confiável, apenas damos o tempo.
   Serial.println(F("DFPlayer Mini Online (Modo Nativo)."));
   
-  // Lê volume inicial do potenciômetro e define silencioso
-  int pot_val = analogRead(A6);
-  int vol_mp3 = map(pot_val, 0, 1023, 0, 30);
-  df_volume(vol_mp3);
+  // Configura volume inicial digital (padrão fixado)
+  df_volume(volume_mp3);
   delay(100);
   df_stop();
 
@@ -202,8 +206,7 @@ void loop() {
                         Serial.println(F("Ligando rádio para o alarme..."));
                         radio_ligado = true;
                         rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-                        int pot_val = analogRead(A6);
-                        rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Aplica volume atual
+                        rx.setVolume(volume_radio); // Aplica volume digital configurado (nível 5 fixo)
                         digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
                     }
                 } else {
@@ -239,29 +242,9 @@ void loop() {
     }
   }
   
-  // --- LEITURA DO POTENCIÔMETRO (A6) PARA VOLUME ---
-  static unsigned long last_vol_read_orig = 0;
-  if (tempo_atual_ms - last_vol_read_orig > 200) {
-      last_vol_read_orig = tempo_atual_ms;
-      int pot_val = analogRead(A6);
-      
-      // O potenciômetro físico já é Logarítmico (Audio Taper)! 
-      // Fazer a matemática no software estava criando uma curva dupla distorcida.
-      // Voltamos para a leitura 100% linear:
-      int novo_volume_radio = map(pot_val, 0, 1023, 0, 15); // Escala RDA5807
-      
-      static int volume_atual_orig = -1;
-      if (novo_volume_radio != volume_atual_orig) {
-          volume_atual_orig = novo_volume_radio;
-          
-          if (radio_ligado) {
-              rx.setVolume(volume_atual_orig);
-          }
-          // MP3 usa escala 0-30
-          int novo_volume_mp3 = map(pot_val, 0, 1023, 0, 30);
-          df_volume(novo_volume_mp3);
-      }
-  }
+  // --- CONTROLE DE VOLUME ANALÓGICO (DESATIVADO) ---
+  // Removida leitura de A6 para eliminar distúrbios de ruído nas Nixies.
+  // O controle agora é 100% digital via encoder no modo VOL do rádio.
 
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
   static unsigned long tempo_ultimo_lcd = 0;

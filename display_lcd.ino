@@ -26,11 +26,14 @@ void atualiza_lcd() {
       char freq_buf[6];
       dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf); // Ex: "106.3" ou " 88.5"
       
-      const char* modo_str = (radio_modo_sintonia == 0) ? "MEM" : ((radio_modo_sintonia == 1) ? "SCA" : "LIV");
-      snprintf(linha1, sizeof(linha1), "FM %sMHz  %s", freq_buf, modo_str);
-      
-      const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
-      snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
+      if (radio_controla_volume) {
+          snprintf(linha1, sizeof(linha1), "FM %sMHz  VOL", freq_buf);
+          snprintf(linha2, sizeof(linha2), "Volume: %02d/15   ", volume_radio);
+      } else {
+          snprintf(linha1, sizeof(linha1), "FM %sMHz  SCA", freq_buf);
+          const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
+          snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
+      }
   } else if (estado_menu > 0) {
       // MODO SETUP: Menus de Configuração
       switch (estado_menu) {

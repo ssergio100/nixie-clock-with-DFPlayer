@@ -12,8 +12,7 @@ void relogio() {
           if (alarme_radio) {
               radio_ligado = true;
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-              int pot_val = analogRead(A6);
-              rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Sincroniza o volume do rádio
+              rx.setVolume(volume_radio); // Sincroniza o volume do rádio com o nível digital configurado
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
           } else {
               Serial.println(F("Tocando alarme MP3..."));

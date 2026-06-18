@@ -46,8 +46,8 @@ void state() {
           if (radio_ligado == 0) {
               Serial.println("Radio ON");
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-              int pot_val = analogRead(A6);
-              rx.setVolume(map(pot_val, 0, 1023, 0, 15)); // Sincroniza o volume
+              radio_controla_volume = false; // Inicia sempre no modo sintonia (SCA)
+              rx.setVolume(volume_radio); // Define o volume digital configurado (nível 5 fixo)
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
               radio_ligado = 1;
           } else {
@@ -82,9 +82,9 @@ void state() {
               atualiza_lcd();
           } else {
               if (radio_ligado == 1) {
-                  // No modo RÁDIO: Toque curto altera o radio_modo_sintonia (Memória -> Busca -> Relógio)
+                  // No modo RÁDIO: Toque curto altera entre sintonia (SCA) e volume digital (VOL)
                   beep(70);
-                  radio_modo_sintonia = (radio_modo_sintonia >= 2) ? 0 : radio_modo_sintonia + 1;
+                  radio_controla_volume = !radio_controla_volume;
                   atualiza_lcd();
               } else {
                   // No modo RELÓGIO: Toque curto avança as páginas de Setup
