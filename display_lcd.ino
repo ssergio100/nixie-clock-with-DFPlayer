@@ -100,7 +100,11 @@ void atualiza_lcd() {
 
       // MODO RELÓGIO/NORMAL: Linha 2 Data ou Ajuste Temporário de Brilho
       if (millis() - tempo_ultimo_ajuste_brilho < 2000) {
-          snprintf(linha2, sizeof(linha2), "Brilho: %02d/10   ", nixie_brilho);
+          if (nixie_brilho == 0) {
+              snprintf(linha2, sizeof(linha2), "Brilho: AUTO (%02d)", nixie_brilho_atual);
+          } else {
+              snprintf(linha2, sizeof(linha2), "Brilho: %02d/10   ", nixie_brilho);
+          }
       } else {
           snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
       }

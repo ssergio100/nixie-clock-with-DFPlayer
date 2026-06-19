@@ -47,8 +47,9 @@ bool radio_controla_volume = false; // true = encoder altera volume, false = alt
 int volume_radio = 5;               // Volume padrão do rádio (escala 0-15)
 int volume_mp3 = 10;                // Volume padrão do MP3 (escala 0-30)
 
-// Controle de Brilho das Nixies e LED base
-int nixie_brilho = 10;                              // Nível de brilho de 1 a 10 (inicializa em 10)
+// Controle de Brilho das Nixies e LED base (LDR em A6)
+int nixie_brilho = 0;                               // 0 = AUTO (LDR), 1-10 = MANUAL
+int nixie_brilho_atual = 10;                        // Brilho físico ativo (1 a 10) usado pela ISR
 unsigned long tempo_ultimo_ajuste_brilho = 0;       // Usado para exibir temporariamente no LCD
 
 
@@ -255,9 +256,22 @@ void loop() {
     }
   }
   
-  // --- CONTROLE DE VOLUME ANALÓGICO (DESATIVADO) ---
-  // Removida leitura de A6 para eliminar distúrbios de ruído nas Nixies.
-  // O controle agora é 100% digital via encoder no modo VOL do rádio.
+  // --- LEITURA DO SENSOR DE LUMINOSIDADE (LDR) EM A6 ---
+  static unsigned long last_ldr_read = 0;
+  if (tempo_atual_ms - last_ldr_read > 1000) {
+      last_ldr_read = tempo_atual_ms;
+      int ldr_val = analogRead(A6);
+      
+      if (nixie_brilho == 0) {
+          // LDR com 10k resistor pull-down:
+          // Escuro: ldr_val perto de 0-100. Claro: ldr_val perto de 900.
+          // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
+          int brilho_auto = map(ldr_val, 100, 900, 1, 10);
+          nixie_brilho_atual = constrain(brilho_auto, 1, 10);
+      } else {
+          nixie_brilho_atual = nixie_brilho;
+      }
+  }
 
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
   static unsigned long tempo_ultimo_lcd = 0;
@@ -296,7 +310,7 @@ void atualizaNixieISR() {
   }
 
   // 3. Controle PWM do brilho Nixie + LED base (sem nenhum delay bloqueante na ISR)
-  if (show_digits && sub_estado < nixie_brilho) {
+  if (show_digits && sub_estado < nixie_brilho_atual) {
     if (digito_ativo == 0 && nixie_hora_dez > 0) {
       escreve_byte_fast(nixie_hora_dez);
       digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
@@ -352,13 +366,26 @@ void ajustarBrilhoNixie() {
         if (dir < 0) { // Girou para direita (Aumenta brilho)
             if (nixie_brilho < 10) nixie_brilho++;
         } else { // Girou para esquerda (Diminui brilho)
-            if (nixie_brilho > 1) nixie_brilho--;
+            if (nixie_brilho > 0) nixie_brilho--; // Desce até 0 (AUTO)
         }
+        
+        if (nixie_brilho > 0) {
+            nixie_brilho_atual = nixie_brilho;
+        } else {
+            // Se mudou para AUTO, força leitura analógica imediata para não dar um salto visual
+            int ldr_val = analogRead(A6);
+            int brilho_auto = map(ldr_val, 100, 900, 1, 10);
+            nixie_brilho_atual = constrain(brilho_auto, 1, 10);
+        }
+        
         beep(30);
         tempo_ultimo_ajuste_brilho = millis();
         atualiza_lcd();
-        Serial.print(F("Brilho Nixie: "));
-        Serial.println(nixie_brilho);
+        Serial.print(F("Modo Brilho: "));
+        Serial.print(nixie_brilho == 0 ? "AUTO" : "MANUAL");
+        Serial.print(F(" (Nivel: "));
+        Serial.print(nixie_brilho_atual);
+        Serial.println(F(")"));
     }
 }
 
