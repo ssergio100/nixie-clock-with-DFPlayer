@@ -183,8 +183,8 @@ void setup() {
   // Como resolvemos o pisca-pisca das válvulas com o "cache do LCD", não precisamos mais do I2C em overclock.
   // Wire.setClock(400000);
 
-  // Inicializa a multiplexação por interrupção via Timer1 (a cada 3ms / 3000 microssegundos)
-  Timer1.initialize(3000);
+  // Inicializa a multiplexação por interrupção via Timer1 (a cada 250 microssegundos)
+  Timer1.initialize(250);
   Timer1.attachInterrupt(atualizaNixieISR);
 }
 
@@ -277,24 +277,13 @@ void loop() {
 
 
 void atualizaNixieISR() {
-  // 1. Desliga Nixies E desliga o LED base no início (blanking e parte inativa do ciclo de brilho)
-  digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
-  digitalWrite(PINO_ANODO_HORA_UNI, LOW);
-  digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
-  digitalWrite(PINO_ANODO_MIN_UNI, LOW);
-  digitalWrite(PINO_LED_BASE, HIGH); // Cátodo HIGH = LED base apagado
-  
-  // 2. Aguarda 250 microsegundos de blanking físico para evitar fantasmas
-  delayMicroseconds(250);
-  
-  // 3. Seleciona o próximo dígito
   static uint8_t digito_ativo = 0;
-  digito_ativo = (digito_ativo + 1) % 4;
+  static uint8_t sub_estado = 0; // Varia de 0 a 11 (ciclo total de 3ms por dígito)
   
-  // 4. Pisca os dígitos a cada 300ms quando estiver em modo setup
+  // 1. Determina se o dígito deve estar ativo na animação do setup (piscar)
   bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
   
-  // 5. Verifica se o LED base deve estar aceso no ciclo de piscar
+  // 2. Determina se o LED base deve estar aceso neste momento
   bool led_aceso_ciclo = false;
   if (estado_menu == 0 && !radio_ligado) {
     static unsigned long ultimo_toggle_led = 0;
@@ -305,12 +294,13 @@ void atualizaNixieISR() {
     }
     led_aceso_ciclo = led_estado_pisca;
   } else if (radio_ligado && radio_controla_volume) {
-    led_aceso_ciclo = true; // Aceso fixo no ajuste de volume
+    led_aceso_ciclo = true;
   } else if (estado_menu > 0) {
-    led_aceso_ciclo = true; // Aceso fixo no menu de setup
+    led_aceso_ciclo = true;
   }
 
-  if (show_digits) {
+  // 3. Controle PWM do brilho Nixie + LED base (sem nenhum delay bloqueante na ISR)
+  if (show_digits && sub_estado < nixie_brilho) {
     if (digito_ativo == 0 && nixie_hora_dez > 0) {
       escreve_byte_fast(nixie_hora_dez);
       digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
@@ -325,21 +315,25 @@ void atualizaNixieISR() {
       digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
     }
     
-    // Liga o LED base (cátodo LOW) se estiver no ciclo ativo
     if (led_aceso_ciclo) {
-      digitalWrite(PINO_LED_BASE, LOW);
+      digitalWrite(PINO_LED_BASE, LOW); // Liga LED
+    } else {
+      digitalWrite(PINO_LED_BASE, HIGH); // Apaga LED
     }
-    
-    // 6. Deixa Nixies e LED base acesos proporcionalmente ao nível de brilho (1 a 10)
-    int tempo_aceso = nixie_brilho * 270;
-    delayMicroseconds(tempo_aceso);
-    
-    // 7. Apaga tudo no restante do período de 3ms do Timer
+  } else {
+    // Fora da largura de pulso de brilho (ou durante os passos de blanking 10 e 11): Apaga tudo!
     digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
     digitalWrite(PINO_ANODO_HORA_UNI, LOW);
     digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
     digitalWrite(PINO_ANODO_MIN_UNI, LOW);
     digitalWrite(PINO_LED_BASE, HIGH);
+  }
+
+  // 4. Incrementa o sub-estado a cada 250us
+  sub_estado++;
+  if (sub_estado >= 12) { // 12 x 250us = 3ms (tempo do dígito completo)
+    sub_estado = 0;
+    digito_ativo = (digito_ativo + 1) % 4; // Avança para o próximo tubo
   }
 }
 
