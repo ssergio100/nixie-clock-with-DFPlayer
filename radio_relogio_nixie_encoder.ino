@@ -268,6 +268,11 @@ void loop() {
           // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
           int brilho_auto = map(ldr_val, 100, 900, 1, 10);
           nixie_brilho_atual = constrain(brilho_auto, 1, 10);
+          
+          Serial.print(F("LDR: "));
+          Serial.print(ldr_val);
+          Serial.print(F(" -> Brilho Auto: "));
+          Serial.println(nixie_brilho_atual);
       } else {
           nixie_brilho_atual = nixie_brilho;
       }
