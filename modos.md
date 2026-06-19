@@ -3,13 +3,13 @@
 Documentação do comportamento do hardware e do encoder rotativo em cada estado do relógio.
 
 ### 1. MODO RELÓGIO (Standby/Principal)
-* **O que faz:** Estado padrão. Exibe as horas e atualiza o LCD.
+* **O que faz:** Estado padrão. Exibe as horas e atualiza o LCD. A multiplexação das Nixies e do LED base roda de forma assíncrona via interrupção do Timer1 a cada **250 µs** em segundo plano, garantindo estabilidade e permitindo o controle de brilho sem tremer.
 * **Toque Curto:** Entra no **MODO SETUP** (Emite bipe duplo).
 * **Toque Longo:** Liga o rádio e entra no **MODO RÁDIO**.
-* **Giro:** *[Vazio - Atualmente não faz nada. Sugestão: Ajustar o brilho geral das válvulas ou trocar a cor do LED RGB base?]*
+* **Giro:** Ajusta o **Brilho das Nixies** e do **LED base** de forma síncrona (escala de `1` a `10`). A segunda linha do LCD exibe temporariamente o status (ex: `Brilho: 08/10`) por 2 segundos, e o nível é salvo na EEPROM.
 
 ### 2. MODO RÁDIO (Ouvindo FM)
-* **O que faz:** O módulo FM está ativo e o áudio é liberado. A multiplexação das Nixies é executada via Timer1 (interrupção a cada 3ms) em segundo plano, evitando piscadas e distúrbios.
+* **O que faz:** O módulo FM está ativo e o áudio é liberado. A multiplexação das Nixies é executada via Timer1 (interrupção rápida a cada 250 µs em máquina de estados) em segundo plano, evitando piscadas e distúrbios de barramento.
 * **Toque Curto:** Alterna o foco do giro do encoder entre **Sintonia (SCA)** e **Volume (VOL)**.
 * **Toque Longo:** Desliga o rádio e volta ao **MODO RELÓGIO**.
 * **Giro (conforme o modo ativo):**
