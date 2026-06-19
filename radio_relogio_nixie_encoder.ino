@@ -263,9 +263,10 @@ void loop() {
       int ldr_val = analogRead(A6);
       
       if (nixie_brilho == 0) {
-          // LDR com 10k resistor pull-down calibrado para o ambiente do usuário:
-          // Mapeia leituras de 5 (escuro total) a 400 (luz do quarto) para brilho de 1 a 10.
-          int brilho_auto = map(ldr_val, 5, 400, 1, 10);
+          // LDR com 10k resistor pull-down:
+          // Escuro: ldr_val perto de 0-100. Claro: ldr_val perto de 900.
+          // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
+          int brilho_auto = map(ldr_val, 100, 900, 1, 10);
           nixie_brilho_atual = constrain(brilho_auto, 1, 10);
       } else {
           nixie_brilho_atual = nixie_brilho;
@@ -373,7 +374,7 @@ void ajustarBrilhoNixie() {
         } else {
             // Se mudou para AUTO, força leitura analógica imediata para não dar um salto visual
             int ldr_val = analogRead(A6);
-            int brilho_auto = map(ldr_val, 5, 400, 1, 10);
+            int brilho_auto = map(ldr_val, 100, 900, 1, 10);
             nixie_brilho_atual = constrain(brilho_auto, 1, 10);
         }
         
