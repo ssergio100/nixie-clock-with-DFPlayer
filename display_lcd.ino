@@ -98,9 +98,12 @@ void atualiza_lcd() {
           strcpy(linha1, "AL: Desligado   ");
       }
 
-      // MODO RELÓGIO/NORMAL: Linha 2 Data
-      // Formata: Data: 15/06/2026
-      snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
+      // MODO RELÓGIO/NORMAL: Linha 2 Data ou Ajuste Temporário de Brilho
+      if (millis() - tempo_ultimo_ajuste_brilho < 2000) {
+          snprintf(linha2, sizeof(linha2), "Brilho: %02d/10   ", nixie_brilho);
+      } else {
+          snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
+      }
   }
 
   // Rotina de Auto-Limpeza (Padding)

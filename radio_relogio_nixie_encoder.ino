@@ -47,6 +47,10 @@ bool radio_controla_volume = false; // true = encoder altera volume, false = alt
 int volume_radio = 5;               // Volume padrão do rádio (escala 0-15)
 int volume_mp3 = 10;                // Volume padrão do MP3 (escala 0-30)
 
+// Controle de Brilho das Nixies e LED base
+int nixie_brilho = 10;                              // Nível de brilho de 1 a 10 (inicializa em 10)
+unsigned long tempo_ultimo_ajuste_brilho = 0;       // Usado para exibir temporariamente no LCD
+
 
 uint8_t alarme_hora = 6;
 uint8_t alarme_min = 0;
@@ -141,7 +145,7 @@ void setup() {
 
   Serial.println(F("Inicializando Rádio RDA5807..."));
   rx.setup();
-  rx.setVolume(5); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
+  rx.setVolume(3); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
   rx.setSoftmute(false); // Desativa o mute gradual para agilizar a sintonização
   rx.setAudioOutputHighImpedance(true); // Coloca as saídas em alta impedância (desconecta da linha)
   rx.setVolume(0);   // Deixa no mudo via software (volume zero)
@@ -168,6 +172,10 @@ void setup() {
   alarme_ligado = EEPROM.read(2) == 1;
   alarme_radio = EEPROM.read(3) == 1;
   alarme_fds = EEPROM.read(4) == 1;
+
+  // Carregar Brilho das Nixies (EEPROM 5)
+  nixie_brilho = EEPROM.read(5);
+  if (nixie_brilho < 1 || nixie_brilho > 10) nixie_brilho = 10;
 
   radio_total_estacoes = getFreqsSize();
 
@@ -245,9 +253,9 @@ void loop() {
     if (radio_ligado) {
       radio();
     } else {
-
       rgb(18, 20, 0);  // laranja
       relogio();
+      ajustarBrilhoNixie(); // Permite ajustar o brilho das Nixies girando o encoder
     }
   }
   
@@ -269,11 +277,12 @@ void loop() {
 
 
 void atualizaNixieISR() {
-  // 1. Desliga todos os anodos para fazer o blanking
+  // 1. Desliga Nixies E desliga o LED base no início (blanking e parte inativa do ciclo de brilho)
   digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
   digitalWrite(PINO_ANODO_HORA_UNI, LOW);
   digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
   digitalWrite(PINO_ANODO_MIN_UNI, LOW);
+  digitalWrite(PINO_LED_BASE, HIGH); // Cátodo HIGH = LED base apagado
   
   // 2. Aguarda 250 microsegundos de blanking físico para evitar fantasmas
   delayMicroseconds(250);
@@ -285,6 +294,22 @@ void atualizaNixieISR() {
   // 4. Pisca os dígitos a cada 300ms quando estiver em modo setup
   bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
   
+  // 5. Verifica se o LED base deve estar aceso no ciclo de piscar
+  bool led_aceso_ciclo = false;
+  if (estado_menu == 0 && !radio_ligado) {
+    static unsigned long ultimo_toggle_led = 0;
+    static bool led_estado_pisca = true;
+    if (millis() - ultimo_toggle_led >= 2000) {
+      ultimo_toggle_led = millis();
+      led_estado_pisca = !led_estado_pisca;
+    }
+    led_aceso_ciclo = led_estado_pisca;
+  } else if (radio_ligado && radio_controla_volume) {
+    led_aceso_ciclo = true; // Aceso fixo no ajuste de volume
+  } else if (estado_menu > 0) {
+    led_aceso_ciclo = true; // Aceso fixo no menu de setup
+  }
+
   if (show_digits) {
     if (digito_ativo == 0 && nixie_hora_dez > 0) {
       escreve_byte_fast(nixie_hora_dez);
@@ -299,6 +324,22 @@ void atualizaNixieISR() {
       escreve_byte_fast(nixie_min_uni);
       digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
     }
+    
+    // Liga o LED base (cátodo LOW) se estiver no ciclo ativo
+    if (led_aceso_ciclo) {
+      digitalWrite(PINO_LED_BASE, LOW);
+    }
+    
+    // 6. Deixa Nixies e LED base acesos proporcionalmente ao nível de brilho (1 a 10)
+    int tempo_aceso = nixie_brilho * 270;
+    delayMicroseconds(tempo_aceso);
+    
+    // 7. Apaga tudo no restante do período de 3ms do Timer
+    digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
+    digitalWrite(PINO_ANODO_HORA_UNI, LOW);
+    digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
+    digitalWrite(PINO_ANODO_MIN_UNI, LOW);
+    digitalWrite(PINO_LED_BASE, HIGH);
   }
 }
 
@@ -309,21 +350,27 @@ void escreve_byte_fast(byte x) {
   if (x & 0b00001000) digitalWrite(pinos_bcd_k155id1[3], HIGH); else digitalWrite(pinos_bcd_k155id1[3], LOW);
 }
 
-
 void rgb(int R, int G, int B) {
-  // LED simples com cátodo no pino 9: LOW = aceso, HIGH = apagado.
-  // Pisca 2s/2s apenas no modo relógio. Apagado nos demais modos.
-  if (estado_menu == 0 && !radio_ligado) {
-    static unsigned long ultimo_toggle = 0;
-    static bool led_aceso = true;
-    if (millis() - ultimo_toggle >= 2000) {
-      ultimo_toggle = millis();
-      led_aceso = !led_aceso;
-      digitalWrite(PINO_LED_BASE, led_aceso ? LOW : HIGH);
+  // O brilho e o piscar do LED base agora são controlados sincronizadamente na ISR do Timer1
+}
+
+void ajustarBrilhoNixie() {
+    if (encoder_pos_anterior != encoder_pos_atual) {
+        int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
+        encoder_pos_anterior = encoder_pos_atual;
+
+        if (dir < 0) { // Girou para direita (Aumenta brilho)
+            if (nixie_brilho < 10) nixie_brilho++;
+        } else { // Girou para esquerda (Diminui brilho)
+            if (nixie_brilho > 1) nixie_brilho--;
+        }
+        EEPROM.update(5, nixie_brilho);
+        beep(30);
+        tempo_ultimo_ajuste_brilho = millis();
+        atualiza_lcd();
+        Serial.print(F("Brilho Nixie: "));
+        Serial.println(nixie_brilho);
     }
-  } else {
-    digitalWrite(PINO_LED_BASE, HIGH); // Apagado fora do modo relógio
-  }
 }
 
 

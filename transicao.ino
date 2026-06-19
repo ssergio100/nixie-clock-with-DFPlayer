@@ -34,7 +34,7 @@ void transicao() {
       }
 
       df_play(ALDEAO);
-      tone(PINO_BUZZER, 1500, 100); // Bip discreto a cada hora cheia
+      //tone(PINO_BUZZER, 1500, 100); // Bip discreto a cada hora cheia
 
       // Aguarda 2 segundos para o som tocar, mantendo a multiplexação das Nixies ativas
       delay(2000);
