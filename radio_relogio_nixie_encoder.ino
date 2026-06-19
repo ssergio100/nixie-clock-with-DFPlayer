@@ -173,10 +173,6 @@ void setup() {
   alarme_radio = EEPROM.read(3) == 1;
   alarme_fds = EEPROM.read(4) == 1;
 
-  // Carregar Brilho das Nixies (EEPROM 5)
-  nixie_brilho = EEPROM.read(5);
-  if (nixie_brilho < 1 || nixie_brilho > 10) nixie_brilho = 10;
-
   radio_total_estacoes = getFreqsSize();
 
   // O DS1307 só suporta 100kHz! Acelerar para 400kHz pode corromper as leituras ou travar o chip.
@@ -358,7 +354,6 @@ void ajustarBrilhoNixie() {
         } else { // Girou para esquerda (Diminui brilho)
             if (nixie_brilho > 1) nixie_brilho--;
         }
-        EEPROM.update(5, nixie_brilho);
         beep(30);
         tempo_ultimo_ajuste_brilho = millis();
         atualiza_lcd();
