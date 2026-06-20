@@ -81,5 +81,43 @@ void run_setup_menu() {
             nixie_min_dez = -1; // Desliga dezenas de minuto
             nixie_min_uni = alarme_fds ? 1 : 0; // Exibe 1 ou 0 na extremidade direita
             break;
+
+        case 7: { // Ajuste de Som de Alarme e Volume do MP3
+            uint16_t max_faixas = (total_faixas > 0) ? total_faixas : 99;
+            if (dir > 0) { // Girou Esquerda - Ajusta Faixa do Alarme
+                alarme_som = (alarme_som >= max_faixas) ? 1 : alarme_som + 1;
+                digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
+                df_volume(alarme_mp3_vol);
+                delay(50);
+                df_play(alarme_som);
+            } else if (dir < 0) { // Girou Direita - Ajusta Volume do Alarme
+                alarme_mp3_vol = (alarme_mp3_vol >= 30) ? 0 : alarme_mp3_vol + 1;
+                df_volume(alarme_mp3_vol);
+            }
+            nixie_hora_dez = (alarme_som < 10) ? -1 : (alarme_som / 10);
+            nixie_hora_uni = alarme_som % 10;
+            nixie_min_dez = alarme_mp3_vol / 10;
+            nixie_min_uni = alarme_mp3_vol % 10;
+            break;
+        }
+
+        case 8: { // Ajuste de Som da Hora Cheia (Chime) e seu Volume
+            uint16_t max_faixas = (total_faixas > 0) ? total_faixas : 99;
+            if (dir > 0) { // Girou Esquerda - Ajusta Faixa do Chime
+                chime_som = (chime_som >= max_faixas) ? 1 : chime_som + 1;
+                digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
+                df_volume(chime_volume);
+                delay(50);
+                df_play(chime_som);
+            } else if (dir < 0) { // Girou Direita - Ajusta Volume do Chime
+                chime_volume = (chime_volume >= 30) ? 0 : chime_volume + 1;
+                df_volume(chime_volume);
+            }
+            nixie_hora_dez = (chime_som < 10) ? -1 : (chime_som / 10);
+            nixie_hora_uni = chime_som % 10;
+            nixie_min_dez = chime_volume / 10;
+            nixie_min_uni = chime_volume % 10;
+            break;
+        }
     }
 }

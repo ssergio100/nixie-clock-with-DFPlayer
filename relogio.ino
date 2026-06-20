@@ -23,8 +23,8 @@ void relogio() {
               Serial.println(F("Tocando alarme MP3..."));
               rx.setAudioOutputHighImpedance(true); // Garante o rádio desconectado
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              df_volume(25);
-              df_loop(1);
+              df_volume(alarme_mp3_vol);
+              df_loop(alarme_som);
           }
       } else {
           // Exibe a contagem regressiva (Minutos : Segundos)

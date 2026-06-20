@@ -69,6 +69,14 @@ void atualiza_lcd() {
                   strcpy(linha2, "   DESLIGADO    ");
               }
               break;
+          case 7:
+              snprintf(linha1, sizeof(linha1), "Som Alarme: %02d  ", alarme_som);
+              snprintf(linha2, sizeof(linha2), "Vol Alarme: %02d/30", alarme_mp3_vol);
+              break;
+          case 8:
+              snprintf(linha1, sizeof(linha1), "Som Hora: %02d    ", chime_som);
+              snprintf(linha2, sizeof(linha2), "Vol Hora: %02d/30  ", chime_volume);
+              break;
           default:
               strcpy(linha1, "Salvando...     ");
               strcpy(linha2, "                ");
@@ -98,13 +106,9 @@ void atualiza_lcd() {
           strcpy(linha1, "AL: Desligado   ");
       }
 
-      // MODO RELÓGIO/NORMAL: Linha 2 Data ou Ajuste Temporário de Brilho
-      if (millis() - tempo_ultimo_ajuste_brilho < 2000) {
-          if (nixie_brilho == 0) {
-              snprintf(linha2, sizeof(linha2), "Brilho: AUTO (%02d)", nixie_brilho_atual);
-          } else {
-              snprintf(linha2, sizeof(linha2), "Brilho: %02d/10   ", nixie_brilho);
-          }
+      // MODO RELÓGIO/NORMAL: Linha 2 Data ou Status do Som de Dormir
+      if (volume_sono > 0) {
+          snprintf(linha2, sizeof(linha2), "Chuva Vol: %02d/30 ", volume_sono);
       } else {
           snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
       }

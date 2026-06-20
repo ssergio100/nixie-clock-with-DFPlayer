@@ -46,11 +46,10 @@ bool radio_ligado = false;
 bool radio_controla_volume = false; // true = encoder altera volume, false = altera frequência (sintonia)
 int volume_radio = 5;               // Volume padrão do rádio (escala 0-15)
 int volume_mp3 = 10;                // Volume padrão do MP3 (escala 0-30)
+int volume_sono = 0;                // Volume do som de dormir (chuva, faixa 3, 0 a 30)
 
 // Controle de Brilho das Nixies e LED base (LDR em A6)
-int nixie_brilho = 0;                               // 0 = AUTO (LDR), 1-10 = MANUAL
 int nixie_brilho_atual = 10;                        // Brilho físico ativo (1 a 10) usado pela ISR
-unsigned long tempo_ultimo_ajuste_brilho = 0;       // Usado para exibir temporariamente no LCD
 
 
 uint8_t alarme_hora = 6;
@@ -61,8 +60,12 @@ bool alarme_fds = false;
 
 // Estado do Alarme
 // Mapeamento de Sons (SD Card)
-const uint16_t SOM_ALARME = 1;     // Faixa 1 do SD (Alarme padrão)
-const uint16_t ALDEAO = 2;         // Faixa 4 do SD (Aldeão)
+uint8_t alarme_som = 1;            // Faixa editável do alarme
+uint8_t alarme_mp3_vol = 25;       // Volume editável do alarme MP3
+uint8_t chime_som = 2;             // Faixa editável do chime (hora cheia)
+uint8_t chime_volume = 15;         // Volume editável do chime
+uint16_t total_faixas = 0;         // Total de faixas detectado no cartão SD
+const uint16_t SOM_CHUVA = 3;      // Faixa 3 do SD (Chuva para dormir)
 
 bool alarme_tocando = false;
 bool em_soneca = false;
@@ -89,7 +92,6 @@ uint16_t year;
 // Configuração de botões e estados
 
 bool pressionadoLongo = false;
-unsigned long falhas = 0;
 unsigned long tempo_atual_ms, tempo_ultima_leitura_rtc;
 const unsigned long LONG_PRESS = 700;
 const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
@@ -143,6 +145,14 @@ void setup() {
   df_volume(volume_mp3);
   delay(100);
   df_stop();
+  delay(100);
+
+  // Bloco de teste: Consultar quantidade de faixas
+  Serial.println(F("--- TESTE DE CONSULTA DE FAIXAS ---"));
+  total_faixas = df_get_total_tracks();
+  Serial.print(F("DFPlayer retornou total de faixas: "));
+  Serial.println(total_faixas);
+  Serial.println(F("-----------------------------------"));
 
   Serial.println(F("Inicializando Rádio RDA5807..."));
   rx.setup();
@@ -165,7 +175,7 @@ void setup() {
   lcd.backlight();
   lcd.clear();
 
-  // Carregar Alarmes
+  // Carregar Alarmes e Configurações
   alarme_hora = EEPROM.read(0);
   if (alarme_hora > 23) alarme_hora = 6;
   alarme_min = EEPROM.read(1);
@@ -173,6 +183,14 @@ void setup() {
   alarme_ligado = EEPROM.read(2) == 1;
   alarme_radio = EEPROM.read(3) == 1;
   alarme_fds = EEPROM.read(4) == 1;
+  alarme_som = EEPROM.read(5);
+  if (alarme_som == 0 || alarme_som > 99) alarme_som = 1;
+  alarme_mp3_vol = EEPROM.read(6);
+  if (alarme_mp3_vol > 30) alarme_mp3_vol = 25;
+  chime_som = EEPROM.read(7);
+  if (chime_som == 0 || chime_som > 99) chime_som = 2;
+  chime_volume = EEPROM.read(8);
+  if (chime_volume > 30) chime_volume = 15;
 
   radio_total_estacoes = getFreqsSize();
 
@@ -196,7 +214,6 @@ void loop() {
     if (estado_menu == 0) { // Só puxa a hora do chip físico se não estivermos no menu
       if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
         Serial.println(F("Read date/time failed"));
-        ++falhas;
       } else {
         // --- LÓGICA DE DISPARO DO ALARME ---
         static int last_alarm_min = -1;
@@ -210,6 +227,10 @@ void loop() {
                 last_alarm_min = min; // Trava para não tocar de novo no mesmo minuto
                 alarme_tocando = true; // Flag de Soneca/Cancelamento
                 Serial.println(F(">>> ALARME DISPARADO! <<<"));
+                if (volume_sono > 0) {
+                    df_stop();
+                    volume_sono = 0;
+                }
                 if (alarme_radio) {
                     if (!radio_ligado) {
                         Serial.println(F("Ligando rádio para o alarme..."));
@@ -228,9 +249,9 @@ void loop() {
                     rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
                     radio_ligado = false; // Garante a sincronia do estado
                     digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-                    df_play(SOM_ALARME); // Toca o alarme PRIMEIRO (clones ignoram volume se estiverem parados)
+                    df_play(alarme_som); // Toca o alarme PRIMEIRO (clones ignoram volume se estiverem parados)
                     delay(150); // Dá tempo do clone carregar o MP3 na memória
-                    df_volume(25); // Sobe o volume agora que está tocando
+                    df_volume(alarme_mp3_vol); // Sobe o volume agora que está tocando
                 }
             }
         }
@@ -252,7 +273,7 @@ void loop() {
     } else {
       rgb(18, 20, 0);  // laranja
       relogio();
-      ajustarBrilhoNixie(); // Permite ajustar o brilho das Nixies girando o encoder
+      gerenciarSomSono(); // Gerencia o som de dormir e volume via encoder
     }
   }
   
@@ -262,15 +283,11 @@ void loop() {
       last_ldr_read = tempo_atual_ms;
       int ldr_val = analogRead(A6);
       
-      if (nixie_brilho == 0) {
-          // LDR com 10k resistor pull-down:
-          // Escuro: ldr_val perto de 0-100. Claro: ldr_val perto de 900.
-          // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
-          int brilho_auto = map(ldr_val, 100, 900, 1, 10);
-          nixie_brilho_atual = constrain(brilho_auto, 1, 10);
-      } else {
-          nixie_brilho_atual = nixie_brilho;
-      }
+      // LDR com 10k resistor pull-down:
+      // Escuro: ldr_val perto de 0-100. Claro: ldr_val perto de 900.
+      // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
+      int brilho_auto = map(ldr_val, 100, 900, 1, 10);
+      nixie_brilho_atual = constrain(brilho_auto, 1, 10);
   }
 
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
@@ -358,48 +375,50 @@ void rgb(int R, int G, int B) {
   // O brilho e o piscar do LED base agora são controlados sincronizadamente na ISR do Timer1
 }
 
-void ajustarBrilhoNixie() {
+void gerenciarSomSono() {
     if (encoder_pos_anterior != encoder_pos_atual) {
         int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
         encoder_pos_anterior = encoder_pos_atual;
+        
+        bool alterou = false;
 
-        if (dir < 0) { // Girou para direita (Aumenta brilho)
-            if (nixie_brilho < 10) nixie_brilho++;
-        } else { // Girou para esquerda (Diminui brilho)
-            if (nixie_brilho > 0) nixie_brilho--; // Desce até 0 (AUTO)
+        if (dir < 0) { // Horário (Liga / Aumenta volume)
+            if (volume_sono == 0) {
+                volume_sono = 1;
+                digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
+                df_volume(volume_sono);
+                delay(50);
+                df_loop(SOM_CHUVA); // Toca faixa de chuva em loop
+                alterou = true;
+            } else if (volume_sono < 30) {
+                volume_sono++;
+                df_volume(volume_sono);
+                alterou = true;
+            }
+        } else { // Anti-horário (Diminui volume / desliga)
+            if (volume_sono > 0) {
+                volume_sono--;
+                if (volume_sono == 0) {
+                    df_stop();
+                    if (!radio_ligado) {
+                        digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // Desliga amp
+                    }
+                } else {
+                    df_volume(volume_sono);
+                }
+                alterou = true;
+            }
         }
         
-        if (nixie_brilho > 0) {
-            nixie_brilho_atual = nixie_brilho;
-        } else {
-            // Se mudou para AUTO, força leitura analógica imediata para não dar um salto visual
-            int ldr_val = analogRead(A6);
-            int brilho_auto = map(ldr_val, 100, 900, 1, 10);
-            nixie_brilho_atual = constrain(brilho_auto, 1, 10);
+        if (alterou) {
+            beep(30);
+            atualiza_lcd();
+            Serial.print(F("Volume Chuva: "));
+            Serial.println(volume_sono);
         }
-        
-        beep(30);
-        tempo_ultimo_ajuste_brilho = millis();
-        atualiza_lcd();
-        Serial.print(F("Modo Brilho: "));
-        Serial.print(nixie_brilho == 0 ? "AUTO" : "MANUAL");
-        Serial.print(F(" (Nivel: "));
-        Serial.print(nixie_brilho_atual);
-        Serial.println(F(")"));
     }
 }
 
-
-
-void debug() {
-  Serial.print("Falhas: ");
-  Serial.println(falhas);
-  Serial.print("Ajuste: ");
-  Serial.println(estado_menu);
-  Serial.print("radio_modo_sintonia: ");
-  Serial.println(radio_modo_sintonia);
-  Serial.println("----------------------------");
-}
 void checkPosition() {
   encoder->tick();
 }

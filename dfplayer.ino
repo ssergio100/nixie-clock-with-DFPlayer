@@ -38,3 +38,33 @@ void df_volume(uint8_t vol) {
   if (vol > 30) vol = 30;
   df_send_cmd(0x06, 0x00, vol);
 }
+
+// Retorna o número total de faixas presentes no cartão SD (TF)
+uint16_t df_get_total_tracks() {
+  // Limpa o buffer de entrada serial para evitar leituras antigas
+  while(dfSerial.available()) {
+    dfSerial.read();
+  }
+
+  // Comando 0x48: Query TF (Micro SD) Card files count
+  df_send_cmd(0x48, 0x00, 0x00);
+
+  // Aguarda a resposta com timeout de 300ms
+  uint8_t response[10];
+  uint8_t bytes_lidos = 0;
+  unsigned long timeout = millis() + 300;
+
+  while (millis() < timeout && bytes_lidos < 10) {
+    if (dfSerial.available()) {
+      response[bytes_lidos++] = dfSerial.read();
+    }
+  }
+
+  // Se lemos os 10 bytes com o formato esperado da resposta do comando 0x48
+  if (bytes_lidos == 10 && response[0] == 0x7E && response[9] == 0xEF && response[3] == 0x48) {
+    uint16_t total = ((uint16_t)response[5] << 8) | response[6];
+    return total;
+  }
+
+  return 0; // Retorna 0 em caso de falha/timeout ou incompatibilidade de clone
+}
