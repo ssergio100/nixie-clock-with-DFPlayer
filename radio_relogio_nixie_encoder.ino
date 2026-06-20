@@ -277,17 +277,54 @@ void loop() {
     }
   }
   
-  // --- LEITURA DO SENSOR DE LUMINOSIDADE (LDR) EM A6 ---
+  // --- LEITURA E FILTRAGEM DO LDR EM A6 (SUAVIZAÇÃO E HISTERESE) ---
   static unsigned long last_ldr_read = 0;
-  if (tempo_atual_ms - last_ldr_read > 1000) {
+  static int ldr_filtrado = -1;
+  
+  if (tempo_atual_ms - last_ldr_read >= 200) {
       last_ldr_read = tempo_atual_ms;
-      int ldr_val = analogRead(A6);
+      int ldr_raw = analogRead(A6);
       
-      // LDR com 10k resistor pull-down:
-      // Escuro: ldr_val perto de 0-100. Claro: ldr_val perto de 900.
-      // Mapeia de 100 (muito escuro) a 900 (muito claro) para escala de brilho 1 a 10.
-      int brilho_auto = map(ldr_val, 100, 900, 1, 10);
-      nixie_brilho_atual = constrain(brilho_auto, 1, 10);
+      if (ldr_filtrado < 0) {
+          ldr_filtrado = ldr_raw;
+      } else {
+          // Filtro EMA (Média Móvel Exponencial): Peso de 5% na nova leitura. Constante de tempo ~2 segundos.
+          ldr_filtrado = ((long)ldr_filtrado * 95 + (long)ldr_raw * 5) / 100;
+      }
+      
+      // Tabelas de histerese para os limites de transição de brilho (1 a 10)
+      // THRESHOLD_UP[i] define o limite para subir do nível i+1 para i+2
+      // THRESHOLD_DOWN[i] define o limite para descer do nível i+2 para i+1
+      static const int THRESHOLD_UP[9]   = {180, 350, 520, 650, 740, 800, 835, 855, 868};
+      static const int THRESHOLD_DOWN[9] = {140, 310, 480, 610, 705, 770, 810, 835, 853};
+      
+      int novo_brilho = nixie_brilho_atual;
+      if (novo_brilho < 1) novo_brilho = 1;
+      if (novo_brilho > 10) novo_brilho = 10;
+      
+      // Tenta subir o brilho
+      while (novo_brilho < 10 && ldr_filtrado > THRESHOLD_UP[novo_brilho - 1]) {
+          novo_brilho++;
+      }
+      // Tenta descer o brilho
+      while (novo_brilho > 1 && ldr_filtrado < THRESHOLD_DOWN[novo_brilho - 2]) {
+          novo_brilho--;
+      }
+      
+      // Se houve alteração real, aplica e imprime no console serial
+      if (novo_brilho != nixie_brilho_atual) {
+          Serial.print(F("LDR Mudanca Brilho: "));
+          Serial.print(nixie_brilho_atual);
+          Serial.print(F(" -> "));
+          Serial.print(novo_brilho);
+          Serial.print(F(" (LDR Raw: "));
+          Serial.print(ldr_raw);
+          Serial.print(F(", Filt: "));
+          Serial.print(ldr_filtrado);
+          Serial.println(F(")"));
+          
+          nixie_brilho_atual = novo_brilho;
+      }
   }
 
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
