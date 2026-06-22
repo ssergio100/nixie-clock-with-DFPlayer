@@ -1,4 +1,7 @@
 void atualiza_lcd() {
+  if (estado_menu == MODO_RELOGIO) {
+      return;
+  }
   char linha1[17]; // 16 caracteres + terminador nulo
   char linha2[17];
   static char last_linha1[17] = "";
@@ -21,7 +24,7 @@ void atualiza_lcd() {
       int minutos_restantes = (tempo_restante / 1000) / 60;
       int segundos_restantes = (tempo_restante / 1000) % 60;
       snprintf(linha2, sizeof(linha2), "Tempo: %02d:%02d", minutos_restantes, segundos_restantes);
-  } else if (radio_ligado == 1) {
+  } else if (radio_ligado) {
       // MODO RÁDIO: Exibe informações do Rádio
       char freq_buf[6];
       dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf); // Ex: "106.3" ou " 88.5"
@@ -34,18 +37,18 @@ void atualiza_lcd() {
           const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
           snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
       }
-  } else if (estado_menu > 0) {
+  } else if (estado_menu > MODO_RELOGIO) {
       // MODO SETUP: Menus de Configuração
       switch (estado_menu) {
-          case 1:
+          case SETUP_HORA_MINUTO:
               strcpy(linha1, "Ajustar Relogio ");
               snprintf(linha2, sizeof(linha2), "%02d:%02d", hour, min);
               break;
-          case 2:
+          case SETUP_ALARME_HORA_MINUTO:
               strcpy(linha1, "Hora do Alarme  ");
               snprintf(linha2, sizeof(linha2), "%02d:%02d", alarme_hora, alarme_min);
               break;
-          case 3:
+          case SETUP_ALARME_MODO_STATUS:
               strcpy(linha1, "Modo do Alarme  ");
               if (alarme_radio) {
                   snprintf(linha2, sizeof(linha2), "RADIO (%s)", alarme_ligado ? "ON " : "OFF");
@@ -53,15 +56,15 @@ void atualiza_lcd() {
                   snprintf(linha2, sizeof(linha2), "MP3 (%s)", alarme_ligado ? "ON " : "OFF");
               }
               break;
-          case 4:
+          case SETUP_DATA_DIA_MES:
               strcpy(linha1, "Ajuste Data: D/M");
               snprintf(linha2, sizeof(linha2), "%02d/%02d", mday, mon);
               break;
-          case 5:
+          case SETUP_ANO:
               snprintf(linha1, sizeof(linha1), "Ajuste Ano: %04d", year);
               strcpy(linha2, "                ");
               break;
-          case 6:
+          case SETUP_ALARME_FDS:
               strcpy(linha1, "Alarme Fim de S.");
               if (alarme_fds) {
                   strcpy(linha2, "     LIGADO     ");
@@ -69,11 +72,11 @@ void atualiza_lcd() {
                   strcpy(linha2, "   DESLIGADO    ");
               }
               break;
-          case 7:
+          case SETUP_ALARME_SOM_VOLUME:
               snprintf(linha1, sizeof(linha1), "Som Alarme: %02d  ", alarme_som);
               snprintf(linha2, sizeof(linha2), "Vol Alarme: %02d/30", alarme_mp3_vol);
               break;
-          case 8:
+          case SETUP_CHIME_SOM_VOLUME:
               snprintf(linha1, sizeof(linha1), "Som Hora: %02d    ", chime_som);
               snprintf(linha2, sizeof(linha2), "Vol Hora: %02d/30  ", chime_volume);
               break;
@@ -106,12 +109,8 @@ void atualiza_lcd() {
           strcpy(linha1, "AL: Desligado   ");
       }
 
-      // MODO RELÓGIO/NORMAL: Linha 2 Data ou Status do Som de Dormir
-      if (volume_sono > 0) {
-          snprintf(linha2, sizeof(linha2), "Chuva Vol: %02d/30 ", volume_sono);
-      } else {
-          snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
-      }
+      // MODO RELÓGIO/NORMAL: Linha 2 Data
+      snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
   }
 
   // Rotina de Auto-Limpeza (Padding)

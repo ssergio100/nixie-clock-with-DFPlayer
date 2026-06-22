@@ -1,7 +1,4 @@
 void run_setup_menu() {
-    // Cor do setup (LED pisca em 2s/2s — comportamento fixo)
-    rgb(20, 0, 0);
-
     int dir = 0;
     if (encoder_pos_anterior != encoder_pos_atual) {
         dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
@@ -10,7 +7,7 @@ void run_setup_menu() {
     }
 
     switch (estado_menu) {
-        case 1: // Ajuste da Hora do Relógio
+        case SETUP_HORA_MINUTO: // Ajuste da Hora do Relógio
             if (dir > 0) { // Girou Esquerda - Ajusta Hora
                 hour = (hour >= 23) ? 0 : hour + 1;
             } else if (dir < 0) { // Girou Direita - Ajusta Minuto
@@ -22,7 +19,7 @@ void run_setup_menu() {
             nixie_min_uni = min % 10;
             break;
 
-        case 2: // Ajuste do Alarme (Hora/Minuto)
+        case SETUP_ALARME_HORA_MINUTO: // Ajuste do Alarme (Hora/Minuto)
             if (dir > 0) { // Girou Esquerda - Ajusta Hora
                 alarme_hora = (alarme_hora >= 23) ? 0 : alarme_hora + 1;
             } else if (dir < 0) { // Girou Direita - Ajusta Minuto
@@ -34,7 +31,7 @@ void run_setup_menu() {
             nixie_min_uni = alarme_min % 10;
             break;
 
-        case 3: // Opções do Alarme (Som e Status)
+        case SETUP_ALARME_MODO_STATUS: // Opções do Alarme (Som e Status)
             if (dir > 0) { // Esquerda - Rádio ou MP3
                 alarme_radio = !alarme_radio;
             } else if (dir < 0) { // Direita - Ligado ou Desligado
@@ -48,7 +45,7 @@ void run_setup_menu() {
             nixie_min_uni = alarme_ligado ? 1 : 0;
             break;
 
-        case 4: // Ajuste de Dia e Mês
+        case SETUP_DATA_DIA_MES: // Ajuste de Dia e Mês
             if (dir > 0) { // Girou Esquerda - Ajusta Dia
                 mday = (mday >= 31) ? 1 : mday + 1;
             } else if (dir < 0) { // Girou Direita - Ajusta Mês
@@ -60,7 +57,7 @@ void run_setup_menu() {
             nixie_min_uni = mon % 10;
             break;
 
-        case 5: // Ajuste de Ano
+        case SETUP_ANO: // Ajuste de Ano
             if (dir > 0) { // Esquerda - Decrementa
                 year = (year <= 2000) ? 2099 : year - 1;
             } else if (dir < 0) { // Direita - Incrementa
@@ -72,7 +69,7 @@ void run_setup_menu() {
             nixie_min_uni = (year % 100) % 10;
             break;
 
-        case 6: // Ajuste de Alarme Fim de Semana
+        case SETUP_ALARME_FDS: // Ajuste de Alarme Fim de Semana
             if (dir > 0 || dir < 0) { // Qualquer lado alterna ligado/desligado
                 alarme_fds = !alarme_fds;
             }
@@ -82,7 +79,7 @@ void run_setup_menu() {
             nixie_min_uni = alarme_fds ? 1 : 0; // Exibe 1 ou 0 na extremidade direita
             break;
 
-        case 7: { // Ajuste de Som de Alarme e Volume do MP3
+        case SETUP_ALARME_SOM_VOLUME: { // Ajuste de Som de Alarme e Volume do MP3
             uint16_t max_faixas = (total_faixas > 0) ? total_faixas : 99;
             if (dir > 0) { // Girou Esquerda - Ajusta Faixa do Alarme
                 alarme_som = (alarme_som >= max_faixas) ? 1 : alarme_som + 1;
@@ -101,7 +98,7 @@ void run_setup_menu() {
             break;
         }
 
-        case 8: { // Ajuste de Som da Hora Cheia (Chime) e seu Volume
+        case SETUP_CHIME_SOM_VOLUME: { // Ajuste de Som da Hora Cheia (Chime) e seu Volume
             uint16_t max_faixas = (total_faixas > 0) ? total_faixas : 99;
             if (dir > 0) { // Girou Esquerda - Ajusta Faixa do Chime
                 chime_som = (chime_som >= max_faixas) ? 1 : chime_som + 1;

@@ -32,25 +32,32 @@ int8_t nixie_hora_uni;  //unidade da hora
 int8_t nixie_min_dez;  //dezena dos minutos
 int8_t nixie_min_uni;  //unidade dos minutos
 
-
 const uint8_t pinos_bcd_k155id1[] = { 5, 6, 7, 8 };
 #define PINO_LED_BASE 9
 
-// Variáveis de controle e Alarme
-uint8_t estado_menu = 0; // 0 = Relógio Normal, 1-5 = Menus, 6 = Salvar/Sair
+enum EstadoMenu {
+    MODO_RELOGIO = 0,
+    SETUP_HORA_MINUTO = 1,
+    SETUP_ALARME_HORA_MINUTO = 2,
+    SETUP_ALARME_MODO_STATUS = 3,
+    SETUP_DATA_DIA_MES = 4,
+    SETUP_ANO = 5,
+    SETUP_ALARME_FDS = 6,
+    SETUP_ALARME_SOM_VOLUME = 7,
+    SETUP_CHIME_SOM_VOLUME = 8
+};
+uint8_t estado_menu = MODO_RELOGIO; // 0 = Relógio Normal, 1-8 = Menus de Setup
 uint8_t radio_modo_sintonia = 1; // Fixo no modo Scanner (1) por padrão
 int encoder_pos_anterior = 0;
 bool radio_ligado = false;
 
 // Variáveis para controle de volume digital via encoder (remoção do potenciômetro)
 bool radio_controla_volume = false; // true = encoder altera volume, false = altera frequência (sintonia)
-int volume_radio = 5;               // Volume padrão do rádio (escala 0-15)
+int volume_radio = 1;               // Volume padrão do rádio (escala 0-15)
 int volume_mp3 = 10;                // Volume padrão do MP3 (escala 0-30)
-int volume_sono = 0;                // Volume do som de dormir (chuva, faixa 3, 0 a 30)
 
-// Controle de Brilho das Nixies e LED base (LDR em A6)
-int nixie_brilho_atual = 10;                        // Brilho físico ativo (1 a 10) usado pela ISR
-
+// Controle de Brilho das Nixies e LED base
+int nixie_brilho_atual = 6;                        // Brilho físico ativo (1 a 11) usado pela ISR
 
 uint8_t alarme_hora = 6;
 uint8_t alarme_min = 0;
@@ -65,7 +72,6 @@ uint8_t alarme_mp3_vol = 25;       // Volume editável do alarme MP3
 uint8_t chime_som = 2;             // Faixa editável do chime (hora cheia)
 uint8_t chime_volume = 15;         // Volume editável do chime
 uint16_t total_faixas = 0;         // Total de faixas detectado no cartão SD
-const uint16_t SOM_CHUVA = 3;      // Faixa 3 do SD (Chuva para dormir)
 
 bool alarme_tocando = false;
 bool em_soneca = false;
@@ -76,29 +82,26 @@ const unsigned long TEMPO_SONECA_MS = 300000; // 5 minutos (5 * 60 * 1000)
 bool is_slot_machine = false;
 unsigned long slot_machine_start = 0;
 
+// Screen Saver (Salva Displays) Manual
+bool screen_saver_ativo = false;
+unsigned long bloqueio_clique_ate = 0;
+
 // Frequência e posicionamento
 int encoder_pos_atual;
 uint8_t radio_total_estacoes;
 uint8_t radio_estacao_atual = 12;
-const int SIGNAL_THRESHOLD = 12;
-
-// Tempo e RGB
-
+const int SIGNAL_THRESHOLD = 30;
 
 // Estrutura de tempo
 uint8_t hour, min, sec, mday, mon, wday;
 uint16_t year;
-
-// Configuração de botões e estados
 
 bool pressionadoLongo = false;
 unsigned long tempo_atual_ms, tempo_ultima_leitura_rtc;
 const unsigned long LONG_PRESS = 700;
 const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
 
-
 RotaryEncoder *encoder = nullptr;
-
 
 void setup() {
   Serial.begin(9600);
@@ -123,23 +126,17 @@ void setup() {
     Serial.println(F("RTC not found"));  // Apenas avisa, sem travar
   }
 
-  //    if (!rtc.setDateTime(12, 34, 56,  31, 12, 2020, 0)) {
-  //          Serial.println(F("Set date/time failed"));
-  //          ++falhas;
-  //      }
-
-
   rtc.setSquareWave(SquareWaveDisable); // SQW em LOW permanente → LED do RTC sempre aceso
   digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);  //amplificador desligado
   myBtn.begin();
   dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
   
   // Aguarda boot elétrico do DFPlayer
-  Serial.println(F("Aguardando 2s para boot do DFPlayer..."));
+  // Serial.println(F("Aguardando 2s para boot do DFPlayer..."));
   delay(2000);
 
   // Inicialização raiz - O DFPlayer não envia handshake confiável, apenas damos o tempo.
-  Serial.println(F("DFPlayer Mini Online (Modo Nativo)."));
+  // Serial.println(F("DFPlayer Mini Online (Modo Nativo)."));
   
   // Configura volume inicial digital (padrão fixado)
   df_volume(volume_mp3);
@@ -148,21 +145,21 @@ void setup() {
   delay(100);
 
   // Bloco de teste: Consultar quantidade de faixas
-  Serial.println(F("--- TESTE DE CONSULTA DE FAIXAS ---"));
+  // Serial.println(F("--- TESTE DE CONSULTA DE FAIXAS ---"));
   total_faixas = df_get_total_tracks();
-  Serial.print(F("DFPlayer retornou total de faixas: "));
-  Serial.println(total_faixas);
-  Serial.println(F("-----------------------------------"));
+  // Serial.print(F("DFPlayer retornou total de faixas: "));
+  // Serial.println(total_faixas);
+  // Serial.println(F("-----------------------------------"));
 
-  Serial.println(F("Inicializando Rádio RDA5807..."));
+  // Serial.println(F("Inicializando Rádio RDA5807..."));
   rx.setup();
-  rx.setVolume(3); // Volume fixo em 5 (1/3 de 15) conforme solicitado para testes
+  rx.setBass(false); // Desativa reforço de graves para atenuar o volume excessivo no nível 1
+  rx.setBand(2); // Configura banda mundial (76-108 MHz) para suportar a faixa de 76.7 MHz (Classic Pan)
   rx.setSoftmute(false); // Desativa o mute gradual para agilizar a sintonização
   rx.setAudioOutputHighImpedance(true); // Coloca as saídas em alta impedância (desconecta da linha)
-  rx.setVolume(0);   // Deixa no mudo via software (volume zero)
+  rx.setVolume(0);   // Deixa no mudo via software (volume zero) no boot
   rx.setMono(true); // Mono garante sinal mais limpo em transmissões fracas
-  rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100)); // PU2CLR usa uint16_t (ex: 10630)
-
+  rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100 + 0.5)); // Arredondamento evita truncagem de float (+0.1 MHz offset)
 
   encoder = new RotaryEncoder(PINO_ENCODER_B,PINO_ENCODER_A, RotaryEncoder::LatchMode::FOUR3);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
@@ -172,7 +169,7 @@ void setup() {
 
   // Iniciar LCD
   lcd.init();
-  lcd.backlight();
+  lcd.noBacklight();
   lcd.clear();
 
   // Carregar Alarmes e Configurações
@@ -194,10 +191,6 @@ void setup() {
 
   radio_total_estacoes = getFreqsSize();
 
-  // O DS1307 só suporta 100kHz! Acelerar para 400kHz pode corromper as leituras ou travar o chip.
-  // Como resolvemos o pisca-pisca das válvulas com o "cache do LCD", não precisamos mais do I2C em overclock.
-  // Wire.setClock(400000);
-
   // Inicializa a multiplexação por interrupção via Timer1 (a cada 250 microssegundos)
   Timer1.initialize(250);
   Timer1.attachInterrupt(atualizaNixieISR);
@@ -206,256 +199,82 @@ void setup() {
 void loop() {
   encoder_pos_atual = encoder->getPosition();
 
+  // Trata o despertar através do giro do encoder
+  if (encoder_pos_anterior != encoder_pos_atual) {
+      if (screen_saver_ativo) {
+          screen_saver_ativo = false;
+          encoder_pos_anterior = encoder_pos_atual;
+          beep(50);
+      }
+  }
+
   tempo_atual_ms = millis();
   myBtn.read();
   state();
 
+  // Controle de luz de fundo do LCD (apenas liga no setup)
+  static bool last_lcd_on = false;
+  bool current_lcd_on = (estado_menu > MODO_RELOGIO);
+  if (current_lcd_on != last_lcd_on) {
+      last_lcd_on = current_lcd_on;
+      if (current_lcd_on) {
+          lcd.backlight();
+          atualiza_lcd(); // Desenha imediatamente
+      } else {
+          lcd.noBacklight();
+          lcd.clear(); // Limpa a tela ao sair do setup
+      }
+  }
+
   if ((tempo_atual_ms - tempo_ultima_leitura_rtc) >= INTERVALO_ATUALIZACAO_RTC) {
-    if (estado_menu == 0) { // Só puxa a hora do chip físico se não estivermos no menu
+    if (estado_menu == MODO_RELOGIO) { // Só puxa a hora do chip físico se não estivermos no menu
       if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
         Serial.println(F("Read date/time failed"));
       } else {
-        // --- LÓGICA DE DISPARO DO ALARME ---
-        static int last_alarm_min = -1;
-        if (alarme_ligado && hour == alarme_hora && min == alarme_min && last_alarm_min != min && !em_soneca) {
-            bool toca_hoje = true;
-            // DS1307: 1 = Domingo, 7 = Sábado. Se alarme_fds for false (só dias de semana), ignoramos dom(1) e sab(7).
-            if (!alarme_fds && (wday == 1 || wday == 7)) {
-                toca_hoje = false; 
-            }
-            if (toca_hoje) {
-                last_alarm_min = min; // Trava para não tocar de novo no mesmo minuto
-                alarme_tocando = true; // Flag de Soneca/Cancelamento
-                Serial.println(F(">>> ALARME DISPARADO! <<<"));
-                if (volume_sono > 0) {
-                    df_stop();
-                    volume_sono = 0;
-                }
-                if (alarme_radio) {
-                    if (!radio_ligado) {
-                        Serial.println(F("Ligando rádio para o alarme..."));
-                        radio_ligado = true;
-                        rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-                        rx.setVolume(volume_radio); // Aplica volume digital configurado (nível 5 fixo)
-                        if (volume_radio == 0) {
-                            rx.setMute(true);
-                        } else {
-                            rx.setMute(false);
-                        }
-                        digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-                    }
-                } else {
-                    Serial.println(F("Tocando alarme MP3..."));
-                    rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
-                    radio_ligado = false; // Garante a sincronia do estado
-                    digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-                    df_play(alarme_som); // Toca o alarme PRIMEIRO (clones ignoram volume se estiverem parados)
-                    delay(150); // Dá tempo do clone carregar o MP3 na memória
-                    df_volume(alarme_mp3_vol); // Sobe o volume agora que está tocando
-                }
-            }
-        }
-        // Reseta a trava no minuto seguinte
-        if (min != alarme_min) {
-            last_alarm_min = -1;
-        }
+        verificarDisparoAlarme();
+        verificarChime();
       }
     }
-    transicao();
     tempo_ultima_leitura_rtc = tempo_atual_ms;
   }
   
-  if (estado_menu > 0) {
+  if (estado_menu > MODO_RELOGIO) {
     run_setup_menu();
   } else {
     if (radio_ligado) {
       radio();
     } else {
-      rgb(18, 20, 0);  // laranja
       relogio();
-      gerenciarSomSono(); // Gerencia o som de dormir e volume via encoder
+      
+      // Controle de brilho manual das Nixies via encoder em modo Relógio
+      if (encoder_pos_anterior != encoder_pos_atual && !screen_saver_ativo) {
+          int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
+          encoder_pos_anterior = encoder_pos_atual;
+          
+          if (dir < 0) { // Horário / Direita (Aumenta brilho)
+              if (nixie_brilho_atual < 11) {
+                  nixie_brilho_atual++;
+                  beep(15);
+                  // Serial.print(F("Brilho Nixie: "));
+                  // Serial.println(nixie_brilho_atual);
+              }
+          } else { // Anti-horário / Esquerda (Diminui brilho)
+              if (nixie_brilho_atual > 1) {
+                  nixie_brilho_atual--;
+                  beep(15);
+                  // Serial.print(F("Brilho Nixie: "));
+                  // Serial.println(nixie_brilho_atual);
+              }
+          }
+      }
     }
   }
   
-  // --- LEITURA E FILTRAGEM DO LDR EM A6 (SUAVIZAÇÃO E HISTERESE) ---
-  static unsigned long last_ldr_read = 0;
-  static int ldr_filtrado = -1;
-  
-  if (tempo_atual_ms - last_ldr_read >= 200) {
-      last_ldr_read = tempo_atual_ms;
-      int ldr_raw = analogRead(A6);
-      
-      if (ldr_filtrado < 0) {
-          ldr_filtrado = ldr_raw;
-      } else {
-          // Filtro EMA (Média Móvel Exponencial): Peso de 5% na nova leitura. Constante de tempo ~2 segundos.
-          ldr_filtrado = ((long)ldr_filtrado * 95 + (long)ldr_raw * 5) / 100;
-      }
-      
-      // Tabelas de histerese para os limites de transição de brilho (1 a 10)
-      // THRESHOLD_UP[i] define o limite para subir do nível i+1 para i+2
-      // THRESHOLD_DOWN[i] define o limite para descer do nível i+2 para i+1
-      static const int THRESHOLD_UP[9]   = {180, 350, 520, 650, 740, 800, 835, 855, 868};
-      static const int THRESHOLD_DOWN[9] = {140, 310, 480, 610, 705, 770, 810, 835, 853};
-      
-      int novo_brilho = nixie_brilho_atual;
-      if (novo_brilho < 1) novo_brilho = 1;
-      if (novo_brilho > 10) novo_brilho = 10;
-      
-      // Tenta subir o brilho
-      while (novo_brilho < 10 && ldr_filtrado > THRESHOLD_UP[novo_brilho - 1]) {
-          novo_brilho++;
-      }
-      // Tenta descer o brilho
-      while (novo_brilho > 1 && ldr_filtrado < THRESHOLD_DOWN[novo_brilho - 2]) {
-          novo_brilho--;
-      }
-      
-      // Se houve alteração real, aplica e imprime no console serial
-      if (novo_brilho != nixie_brilho_atual) {
-          Serial.print(F("LDR Mudanca Brilho: "));
-          Serial.print(nixie_brilho_atual);
-          Serial.print(F(" -> "));
-          Serial.print(novo_brilho);
-          Serial.print(F(" (LDR Raw: "));
-          Serial.print(ldr_raw);
-          Serial.print(F(", Filt: "));
-          Serial.print(ldr_filtrado);
-          Serial.println(F(")"));
-          
-          nixie_brilho_atual = novo_brilho;
-      }
-  }
-
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---
   static unsigned long tempo_ultimo_lcd = 0;
-  unsigned long intervalo_lcd = (estado_menu > 0) ? 50 : 1000;
+  unsigned long intervalo_lcd = (estado_menu > MODO_RELOGIO) ? 50 : 1000;
   if (tempo_atual_ms - tempo_ultimo_lcd >= intervalo_lcd) {
     tempo_ultimo_lcd = tempo_atual_ms;
     atualiza_lcd();
   }
-
-  // A multiplexação agora roda em background via interrupção do Timer1
-}
-
-
-
-void atualizaNixieISR() {
-  static uint8_t digito_ativo = 0;
-  static uint8_t sub_estado = 0; // Varia de 0 a 11 (ciclo total de 3ms por dígito)
-  
-  // 1. Determina se o dígito deve estar ativo na animação do setup (piscar)
-  bool show_digits = (estado_menu == 0) || ((millis() / 300) % 2 == 0);
-  
-  // 2. Determina se o LED base deve estar aceso neste momento
-  bool led_aceso_ciclo = false;
-  if (estado_menu == 0 && !radio_ligado) {
-    static unsigned long ultimo_toggle_led = 0;
-    static bool led_estado_pisca = true;
-    if (millis() - ultimo_toggle_led >= 2000) {
-      ultimo_toggle_led = millis();
-      led_estado_pisca = !led_estado_pisca;
-    }
-    led_aceso_ciclo = led_estado_pisca;
-  } else if (radio_ligado && radio_controla_volume) {
-    led_aceso_ciclo = true;
-  } else if (estado_menu > 0) {
-    led_aceso_ciclo = true;
-  }
-
-  // 3. Controle PWM do brilho Nixie + LED base (sem nenhum delay bloqueante na ISR)
-  if (show_digits && sub_estado < nixie_brilho_atual) {
-    if (digito_ativo == 0 && nixie_hora_dez > 0) {
-      escreve_byte_fast(nixie_hora_dez);
-      digitalWrite(PINO_ANODO_HORA_DEZ, HIGH);
-    } else if (digito_ativo == 1 && nixie_hora_uni > -1) {
-      escreve_byte_fast(nixie_hora_uni);
-      digitalWrite(PINO_ANODO_HORA_UNI, HIGH);
-    } else if (digito_ativo == 2 && nixie_min_dez > -1) {
-      escreve_byte_fast(nixie_min_dez);
-      digitalWrite(PINO_ANODO_MIN_DEZ, HIGH);
-    } else if (digito_ativo == 3 && nixie_min_uni > -1) {
-      escreve_byte_fast(nixie_min_uni);
-      digitalWrite(PINO_ANODO_MIN_UNI, HIGH);
-    }
-    
-    if (led_aceso_ciclo) {
-      digitalWrite(PINO_LED_BASE, LOW); // Liga LED
-    } else {
-      digitalWrite(PINO_LED_BASE, HIGH); // Apaga LED
-    }
-  } else {
-    // Fora da largura de pulso de brilho (ou durante os passos de blanking 10 e 11): Apaga tudo!
-    digitalWrite(PINO_ANODO_HORA_DEZ, LOW);
-    digitalWrite(PINO_ANODO_HORA_UNI, LOW);
-    digitalWrite(PINO_ANODO_MIN_DEZ, LOW);
-    digitalWrite(PINO_ANODO_MIN_UNI, LOW);
-    digitalWrite(PINO_LED_BASE, HIGH);
-  }
-
-  // 4. Incrementa o sub-estado a cada 250us
-  sub_estado++;
-  if (sub_estado >= 12) { // 12 x 250us = 3ms (tempo do dígito completo)
-    sub_estado = 0;
-    digito_ativo = (digito_ativo + 1) % 4; // Avança para o próximo tubo
-  }
-}
-
-void escreve_byte_fast(byte x) {
-  if (x & 0b00000001) digitalWrite(pinos_bcd_k155id1[0], HIGH); else digitalWrite(pinos_bcd_k155id1[0], LOW);
-  if (x & 0b00000010) digitalWrite(pinos_bcd_k155id1[1], HIGH); else digitalWrite(pinos_bcd_k155id1[1], LOW);
-  if (x & 0b00000100) digitalWrite(pinos_bcd_k155id1[2], HIGH); else digitalWrite(pinos_bcd_k155id1[2], LOW);
-  if (x & 0b00001000) digitalWrite(pinos_bcd_k155id1[3], HIGH); else digitalWrite(pinos_bcd_k155id1[3], LOW);
-}
-
-void rgb(int R, int G, int B) {
-  // O brilho e o piscar do LED base agora são controlados sincronizadamente na ISR do Timer1
-}
-
-void gerenciarSomSono() {
-    if (encoder_pos_anterior != encoder_pos_atual) {
-        int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
-        encoder_pos_anterior = encoder_pos_atual;
-        
-        bool alterou = false;
-
-        if (dir < 0) { // Horário (Liga / Aumenta volume)
-            if (volume_sono == 0) {
-                volume_sono = 1;
-                digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
-                df_volume(volume_sono);
-                delay(50);
-                df_loop(SOM_CHUVA); // Toca faixa de chuva em loop
-                alterou = true;
-            } else if (volume_sono < 30) {
-                volume_sono++;
-                df_volume(volume_sono);
-                alterou = true;
-            }
-        } else { // Anti-horário (Diminui volume / desliga)
-            if (volume_sono > 0) {
-                volume_sono--;
-                if (volume_sono == 0) {
-                    df_stop();
-                    if (!radio_ligado) {
-                        digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // Desliga amp
-                    }
-                } else {
-                    df_volume(volume_sono);
-                }
-                alterou = true;
-            }
-        }
-        
-        if (alterou) {
-            beep(30);
-            atualiza_lcd();
-            Serial.print(F("Volume Chuva: "));
-            Serial.println(volume_sono);
-        }
-    }
-}
-
-void checkPosition() {
-  encoder->tick();
 }
