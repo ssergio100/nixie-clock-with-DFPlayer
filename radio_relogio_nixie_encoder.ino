@@ -74,6 +74,7 @@ uint8_t chime_volume = 15;         // Volume editável do chime
 uint16_t total_faixas = 0;         // Total de faixas detectado no cartão SD
 
 bool alarme_tocando = false;
+unsigned long alarme_start_time = 0;
 bool em_soneca = false;
 unsigned long soneca_end_time = 0;
 const unsigned long TEMPO_SONECA_MS = 300000; // 5 minutos (5 * 60 * 1000)
@@ -102,6 +103,30 @@ const unsigned long LONG_PRESS = 700;
 const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
 
 RotaryEncoder *encoder = nullptr;
+
+uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y) {
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) {
+        return 1; // Retorno de segurança (1 = Domingo) se os dados forem inválidos/não inicializados
+    }
+    static const uint8_t t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    if (m < 3) {
+        y -= 1;
+    }
+    return ((y + y/4 - y/100 + y/400 + t[m-1] + d) % 7) + 1; // 1 = Domingo, 7 = Sábado
+}
+
+const char* obterNomeDiaSemana(uint8_t wd) {
+    switch (wd) {
+        case 1: return "Domingo";
+        case 2: return "Segunda";
+        case 3: return "Terca";
+        case 4: return "Quarta";
+        case 5: return "Quinta";
+        case 6: return "Sexta";
+        case 7: return "Sabado";
+        default: return "Erro";
+    }
+}
 
 void setup() {
   Serial.begin(9600);
@@ -263,11 +288,21 @@ void loop() {
                   nixie_brilho_atual--;
                   beep(15);
                   // Serial.print(F("Brilho Nixie: "));
-                  // Serial.println(nixie_brilho_atual);
               }
           }
       }
     }
+  }
+  
+  // Auto-desativação do alarme após 30 minutos (1800000 ms) tocando ininterruptamente
+  if (alarme_tocando && (tempo_atual_ms - alarme_start_time >= 1800000)) {
+      alarme_tocando = false;
+      em_soneca = false;
+      df_stop();
+      rx.setAudioOutputHighImpedance(true);
+      digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // Desliga amplificador
+      radio_ligado = false;
+      atualiza_lcd();
   }
   
   // --- ATUALIZAÇÃO DO DISPLAY LCD 16x2 ---

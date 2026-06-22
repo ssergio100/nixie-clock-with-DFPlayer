@@ -1,3 +1,5 @@
+uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
+
 void salvar_e_sair() {
     estado_menu = MODO_RELOGIO;
     beep(100); delay(160); beep(100); // Bipe duplo de SAÍDA mais longo
@@ -6,6 +8,7 @@ void salvar_e_sair() {
     df_stop();
     digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
     
+    wday = calcularDiaSemana(mday, mon, year);
     rtc.setDateTime(hour, min, sec, mday, mon, year, wday);
     
     // Debug no Console

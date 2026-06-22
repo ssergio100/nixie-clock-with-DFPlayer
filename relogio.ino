@@ -17,6 +17,7 @@ void relogio() {
           // Fim da soneca! O alarme volta a tocar.
           em_soneca = false;
           alarme_tocando = true;
+          alarme_start_time = millis(); // Reseta o tempo inicial do alarme ao acordar da soneca
           // Serial.println(F(">>> SONECA ACABOU! ACORDANDO <<<"));
           if (alarme_radio) {
               radio_ligado = true;

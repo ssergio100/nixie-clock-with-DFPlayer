@@ -1,0 +1,224 @@
+:root {
+  font-family: Inter, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #f5d38d;
+  background: #0b0d10;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, #1d2433 0%, #0a0c10 55%, #020304 100%);
+}
+
+button {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.clock-panel {
+  width: min(980px, 100%);
+  background: linear-gradient(180deg, #11161f 0%, #0d1017 100%);
+  border: 1px solid #2c3747;
+  border-radius: 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 30px 80px rgba(0, 0, 0, 0.65);
+  padding: 32px;
+}
+
+.clock-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.status-pill,
+.brightness-pill {
+  padding: 8px 12px;
+  background: #0e1420;
+  border: 1px solid #243042;
+  border-radius: 999px;
+  color: #8d9ab1;
+  font-size: 0.9rem;
+}
+
+.display-frame {
+  background:
+    linear-gradient(180deg, rgba(20, 30, 46, 0.95), rgba(8, 12, 18, 0.98));
+  border: 1px solid #2a3a51;
+  border-radius: 18px;
+  padding: 24px 18px;
+}
+
+.nixie-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  position: relative;
+  align-items: center;
+}
+
+.nixie-tube {
+  background: linear-gradient(180deg, #111a25 0%, #05080d 100%);
+  border: 1px solid #3a4d63;
+  border-radius: 12px;
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    inset 0 0 18px rgba(255, 210, 92, 0.04),
+    inset 0 -20px 40px rgba(0, 0, 0, 0.7),
+    0 0 24px rgba(255, 193, 67, 0.03);
+}
+
+.nixie-digit {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(5rem, 7vw, 6rem);
+  color: #ffe08f;
+  text-shadow:
+    0 0 8px rgba(255, 216, 100, 0.65),
+    0 0 18px rgba(255, 176, 0, 0.22);
+}
+
+.nixie-colon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffdf8d;
+  font-size: 4rem;
+  text-shadow: 0 0 12px rgba(255, 210, 100, 0.5);
+}
+
+.helper-text {
+  text-align: center;
+  margin: 16px 0 10px;
+  color: #d0b26d;
+  font-size: 0.95rem;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.menu-button {
+  background: #0e1420;
+  border: 1px solid #2d4058;
+  color: #9aafc7;
+  border-radius: 999px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.menu-button.active {
+  background: #1f304a;
+  color: #ffe29a;
+  box-shadow: inset 0 0 10px rgba(255, 207, 76, 0.08);
+}
+
+.encoder-wrap {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.encoder-label {
+  color: #8aa0bd;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.78rem;
+}
+
+.encoder-body {
+  display: flex;
+  justify-content: center;
+}
+
+.encoder-ring {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #2f3d52 0%, #111928 65%, #0a0f16 100%);
+  border: 1px solid #475a78;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    inset 0 0 28px rgba(255, 210, 92, 0.06),
+    0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.encoder-notch {
+  position: absolute;
+  top: 18px;
+  width: 8px;
+  height: 34px;
+  background: #d5b86b;
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(255, 210, 92, 0.4);
+}
+
+.encoder-center {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(180deg, #27405f 0%, #102235 100%);
+  color: #f9dc8b;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    inset 0 0 12px rgba(255, 210, 92, 0.08),
+    0 0 18px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 640px) {
+  .clock-panel {
+    padding: 20px 12px;
+  }
+
+  .nixie-tube {
+    min-height: 120px;
+  }
+
+  .nixie-digit {
+    font-size: 3.8rem;
+  }
+
+  .nixie-colon {
+    font-size: 3rem;
+  }
+
+  .encoder-ring {
+    width: 150px;
+    height: 150px;
+  }
+}

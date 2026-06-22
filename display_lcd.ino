@@ -1,3 +1,6 @@
+uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
+const char* obterNomeDiaSemana(uint8_t wd);
+
 void atualiza_lcd() {
   if (estado_menu == MODO_RELOGIO) {
       return;
@@ -56,14 +59,18 @@ void atualiza_lcd() {
                   snprintf(linha2, sizeof(linha2), "MP3 (%s)", alarme_ligado ? "ON " : "OFF");
               }
               break;
-          case SETUP_DATA_DIA_MES:
+          case SETUP_DATA_DIA_MES: {
               strcpy(linha1, "Ajuste Data: D/M");
-              snprintf(linha2, sizeof(linha2), "%02d/%02d", mday, mon);
+              uint8_t temp_wday = calcularDiaSemana(mday, mon, year);
+              snprintf(linha2, sizeof(linha2), "%02d/%02d %s", mday, mon, obterNomeDiaSemana(temp_wday));
               break;
-          case SETUP_ANO:
+          }
+          case SETUP_ANO: {
               snprintf(linha1, sizeof(linha1), "Ajuste Ano: %04d", year);
-              strcpy(linha2, "                ");
+              uint8_t temp_wday = calcularDiaSemana(mday, mon, year);
+              snprintf(linha2, sizeof(linha2), "Dia: %s", obterNomeDiaSemana(temp_wday));
               break;
+          }
           case SETUP_ALARME_FDS:
               strcpy(linha1, "Alarme Fim de S.");
               if (alarme_fds) {

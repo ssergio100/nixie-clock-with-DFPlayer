@@ -10,6 +10,7 @@ void verificarDisparoAlarme() {
       if (toca_hoje) {
           last_alarm_min = min; // Trava para não tocar de novo no mesmo minuto
           alarme_tocando = true; // Flag de Soneca/Cancelamento
+          alarme_start_time = millis(); // Salva o tempo inicial do disparo do alarme
           if (alarme_radio) {
               if (!radio_ligado) {
                   radio_ligado = true;
