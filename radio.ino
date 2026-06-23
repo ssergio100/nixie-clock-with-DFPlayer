@@ -11,7 +11,7 @@ void ajustarFrequencia() {
         encoder_pos_anterior = encoder_pos_atual;
 
         if (radio_controla_volume) {
-            if (dir < 0) { // Girou para direita (Aumenta volume)
+            if (dir > 0) { // Girou para direita (Aumenta volume)
                 if (volume_radio < 15) volume_radio++;
             } else { // Girou para esquerda (Diminui volume)
                 if (volume_radio > 0) volume_radio--;
@@ -31,7 +31,7 @@ void ajustarFrequencia() {
             // Serial.println(volume_radio);
         } else {
             // Lógica original de sintonia do rádio
-            if (dir < 0) { // Girou para direita (Avança frequência)
+            if (dir > 0) { // Girou para direita (Avança frequência)
                   if (radio_modo_sintonia == 1 || radio_modo_sintonia == 2) {
                       rx.setMute(true); // Silencia o rádio durante a busca
                       int steps = 0;

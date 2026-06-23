@@ -2,6 +2,7 @@ uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
 
 void salvar_e_sair() {
     estado_menu = MODO_RELOGIO;
+    passo_setup = 0;
     beep(100); delay(160); beep(100); // Bipe duplo de SAÍDA mais longo
     
     // Parar qualquer preview de som e desligar o amplificador
@@ -11,34 +12,20 @@ void salvar_e_sair() {
     wday = calcularDiaSemana(mday, mon, year);
     rtc.setDateTime(hour, min, sec, mday, mon, year, wday);
     
-    // Debug no Console
-    // Serial.println(F("--- SALVANDO AJUSTES ---"));
-    // Serial.print(F("Hora: ")); Serial.print(hour); Serial.print(":"); Serial.println(min);
-    // Serial.print(F("Data: ")); Serial.print(mday); Serial.print("/"); Serial.print(mon); Serial.print("/"); Serial.println(year);
-    // Serial.print(F("Alarme: ")); Serial.print(alarme_hora); Serial.print(":"); Serial.println(alarme_min);
-    // Serial.print(F("Alarme Ligado: ")); Serial.println(alarme_ligado);
-    // Serial.print(F("Modo Radio: ")); Serial.println(alarme_radio);
-    // Serial.print(F("Alarme Som: ")); Serial.println(alarme_som);
-    // Serial.print(F("Alarme MP3 Vol: ")); Serial.println(alarme_mp3_vol);
-    // Serial.print(F("Chime Som: ")); Serial.println(chime_som);
-    // Serial.print(F("Chime Volume: ")); Serial.println(chime_volume);
-    // Serial.print(F("Brilho Nixie: ")); Serial.println(nixie_brilho_atual);
-    
-    EEPROM.update(0, alarme_hora);
-    EEPROM.update(1, alarme_min);
-    EEPROM.update(2, alarme_ligado ? 1 : 0);
-    EEPROM.update(3, alarme_radio ? 1 : 0);
-    EEPROM.update(4, alarme_fds ? 1 : 0);
-    EEPROM.update(5, alarme_som);
-    EEPROM.update(6, alarme_mp3_vol);
-    EEPROM.update(7, chime_som);
-    EEPROM.update(8, chime_volume);
+    EEPROM.update(EEPROM_ADDR_ALARME_HORA, alarme_hora);
+    EEPROM.update(EEPROM_ADDR_ALARME_MIN, alarme_min);
+    EEPROM.update(EEPROM_ADDR_ALARME_LIGADO, alarme_ligado ? 1 : 0);
+    EEPROM.update(EEPROM_ADDR_ALARME_RADIO, alarme_radio ? 1 : 0);
+    EEPROM.update(EEPROM_ADDR_ALARME_FDS, alarme_fds ? 1 : 0);
+    EEPROM.update(EEPROM_ADDR_ALARME_SOM, alarme_som);
+    EEPROM.update(EEPROM_ADDR_ALARME_MP3_VOL, alarme_mp3_vol);
+    EEPROM.update(EEPROM_ADDR_CHIME_SOM, chime_som);
+    EEPROM.update(EEPROM_ADDR_CHIME_VOLUME, chime_volume);
 }
 
 void tratarToqueCurto() {
     if (alarme_tocando || em_soneca) {
         // ENCERRA O ALARME TOTALMENTE
-        // Serial.println(F(">>> ALARME CANCELADO <<<"));
         alarme_tocando = false;
         em_soneca = false;
         beep(500); // Confirma encerramento com bipe longo
@@ -55,35 +42,59 @@ void tratarToqueCurto() {
             radio_controla_volume = !radio_controla_volume;
             atualiza_lcd();
         } else {
-            // No modo RELÓGIO: Toque curto avança as páginas de Setup
-            if (estado_menu >= SETUP_CHIME_SOM_VOLUME) {
-                // Sai do menu e salva tudo
-                salvar_e_sair();
+            // No modo SETUP / RELÓGIO
+            if (estado_menu == MODO_RELOGIO) {
+                // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
+                rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
+                beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
+                estado_menu = SETUP_HORARIO;
+                passo_setup = 0;
             } else {
-                 if (estado_menu == MODO_RELOGIO) {
-                      // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
-                      rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
-                      beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
-                 } else {
-                      beep(30); // Bipe curto para avançar página
-                      // Se estávamos no Modo SETUP_ALARME_SOM_VOLUME ou SETUP_CHIME_SOM_VOLUME, interrompe o preview
-                      if (estado_menu == SETUP_ALARME_SOM_VOLUME || estado_menu == SETUP_CHIME_SOM_VOLUME) {
-                          df_stop();
-                          digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
-                      }
-                 }
-                 estado_menu++;
-                 if (estado_menu == SETUP_ALARME_SOM_VOLUME) {
-                     digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
-                     df_volume(alarme_mp3_vol);
-                     delay(50);
-                     df_play(alarme_som);
-                 } else if (estado_menu == SETUP_CHIME_SOM_VOLUME) {
-                     digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga amplificador
-                     df_volume(chime_volume);
-                     delay(50);
-                     df_play(chime_som);
-                 }
+                uint8_t total_passos = 0;
+                if (estado_menu == SETUP_HORARIO) total_passos = 2;
+                else if (estado_menu == SETUP_ALARME) total_passos = 4;
+                else if (estado_menu == SETUP_DATA) total_passos = 3;
+                else if (estado_menu == SETUP_SONS) total_passos = 4;
+
+                if (passo_setup + 1 < total_passos) {
+                    // Avança passo na tela atual
+                    passo_setup++;
+                    beep(30);
+
+                    // Controle específico de áudio para preview de sons e volume
+                    if (estado_menu == SETUP_SONS) {
+                        if (passo_setup == 2) { // Entrou no Som Chime, para alarme e inicia chime
+                            df_stop();
+                            delay(50);
+                            digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
+                            df_volume(chime_volume);
+                            delay(50);
+                            df_play(chime_som);
+                        }
+                    }
+                } else {
+                    // Fim dos passos desta tela: avança de tela
+                    if (estado_menu == SETUP_SONS) {
+                        // Fim do setup
+                        salvar_e_sair();
+                    } else {
+                        // Para o preview caso esteja saindo de alguma tela com som (embora no fluxo atual só a última tenha som)
+                        df_stop();
+                        digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
+
+                        estado_menu++;
+                        passo_setup = 0;
+                        beep(30);
+
+                        // Se entrou na tela de sons, inicia o preview do som de alarme (passo 0)
+                        if (estado_menu == SETUP_SONS) {
+                            digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
+                            df_volume(alarme_mp3_vol);
+                            delay(50);
+                            df_play(alarme_som);
+                        }
+                    }
+                }
             }
             // Sincroniza o encoder para o número não pular quando você for girar
             encoder_pos_anterior = encoder_pos_atual;

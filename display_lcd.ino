@@ -43,49 +43,25 @@ void atualiza_lcd() {
   } else if (estado_menu > MODO_RELOGIO) {
       // MODO SETUP: Menus de Configuração
       switch (estado_menu) {
-          case SETUP_HORA_MINUTO:
-              strcpy(linha1, "Ajustar Relogio ");
-              snprintf(linha2, sizeof(linha2), "%02d:%02d", hour, min);
+          case SETUP_HORARIO:
+              strcpy(linha1, "Horario : HH:MM ");
+              snprintf(linha2, sizeof(linha2), "          %02d:%02d ", hour, min);
               break;
-          case SETUP_ALARME_HORA_MINUTO:
-              strcpy(linha1, "Hora do Alarme  ");
-              snprintf(linha2, sizeof(linha2), "%02d:%02d", alarme_hora, alarme_min);
-              break;
-          case SETUP_ALARME_MODO_STATUS:
-              strcpy(linha1, "Modo do Alarme  ");
-              if (alarme_radio) {
-                  snprintf(linha2, sizeof(linha2), "RADIO (%s)", alarme_ligado ? "ON " : "OFF");
-              } else {
-                  snprintf(linha2, sizeof(linha2), "MP3 (%s)", alarme_ligado ? "ON " : "OFF");
-              }
-              break;
-          case SETUP_DATA_DIA_MES: {
-              strcpy(linha1, "Ajuste Data: D/M");
-              uint8_t temp_wday = calcularDiaSemana(mday, mon, year);
-              snprintf(linha2, sizeof(linha2), "%02d/%02d %s", mday, mon, obterNomeDiaSemana(temp_wday));
+          case SETUP_ALARME: {
+              strcpy(linha1, "Alarme Atv    Tp");
+              const char* atv_str = alarme_ligado ? (alarme_fds ? "Sim/FS" : " Sim  ") : " Nao  ";
+              snprintf(linha2, sizeof(linha2), "%02d:%02d %-6s %-3s", alarme_hora, alarme_min, atv_str, alarme_radio ? "Fm" : "mp3");
               break;
           }
-          case SETUP_ANO: {
-              snprintf(linha1, sizeof(linha1), "Ajuste Ano: %04d", year);
+          case SETUP_DATA: {
+              strcpy(linha1, "Data/ano/semana ");
               uint8_t temp_wday = calcularDiaSemana(mday, mon, year);
-              snprintf(linha2, sizeof(linha2), "Dia: %s", obterNomeDiaSemana(temp_wday));
+              snprintf(linha2, sizeof(linha2), "%02d/%02d/%02d %-7s", mday, mon, year % 100, obterNomeDiaSemana(temp_wday));
               break;
           }
-          case SETUP_ALARME_FDS:
-              strcpy(linha1, "Alarme Fim de S.");
-              if (alarme_fds) {
-                  strcpy(linha2, "     LIGADO     ");
-              } else {
-                  strcpy(linha2, "   DESLIGADO    ");
-              }
-              break;
-          case SETUP_ALARME_SOM_VOLUME:
-              snprintf(linha1, sizeof(linha1), "Som Alarme: %02d  ", alarme_som);
-              snprintf(linha2, sizeof(linha2), "Vol Alarme: %02d/30", alarme_mp3_vol);
-              break;
-          case SETUP_CHIME_SOM_VOLUME:
-              snprintf(linha1, sizeof(linha1), "Som Hora: %02d    ", chime_som);
-              snprintf(linha2, sizeof(linha2), "Vol Hora: %02d/30  ", chime_volume);
+          case SETUP_SONS:
+              strcpy(linha1, "Alarme e Chime  ");
+              snprintf(linha2, sizeof(linha2), "S%02d v%02d  S%02d v%02d", alarme_som, alarme_mp3_vol, chime_som, chime_volume);
               break;
           default:
               strcpy(linha1, "Salvando...     ");
@@ -135,6 +111,40 @@ void atualiza_lcd() {
           for (int j = i; j < 16; j++) linha2[j] = ' ';
           linha2[16] = '\0';
           break;
+      }
+  }
+
+  // Pisca o campo sob ajuste no LCD (substitui os caracteres por espaços na fase OFF do blink)
+  if (estado_menu > MODO_RELOGIO) {
+      bool blink_on = ((millis() / 300) % 2 == 0);
+      if (!blink_on) {
+          int blink_start = -1;
+          int blink_len = 0;
+          
+          if (estado_menu == SETUP_HORARIO) {
+              if (passo_setup == 0) { blink_start = 10; blink_len = 2; }
+              else if (passo_setup == 1) { blink_start = 13; blink_len = 2; }
+          } else if (estado_menu == SETUP_ALARME) {
+              if (passo_setup == 0) { blink_start = 0; blink_len = 2; }
+              else if (passo_setup == 1) { blink_start = 3; blink_len = 2; }
+              else if (passo_setup == 2) { blink_start = 6; blink_len = 6; }
+              else if (passo_setup == 3) { blink_start = 13; blink_len = 3; }
+          } else if (estado_menu == SETUP_DATA) {
+              if (passo_setup == 0) { blink_start = 0; blink_len = 2; }
+              else if (passo_setup == 1) { blink_start = 3; blink_len = 2; }
+              else if (passo_setup == 2) { blink_start = 6; blink_len = 2; }
+          } else if (estado_menu == SETUP_SONS) {
+              if (passo_setup == 0) { blink_start = 1; blink_len = 2; }
+              else if (passo_setup == 1) { blink_start = 5; blink_len = 2; }
+              else if (passo_setup == 2) { blink_start = 10; blink_len = 2; }
+              else if (passo_setup == 3) { blink_start = 14; blink_len = 2; }
+          }
+          
+          if (blink_start != -1) {
+              for (int i = 0; i < blink_len; i++) {
+                  linha2[blink_start + i] = ' ';
+              }
+          }
       }
   }
 

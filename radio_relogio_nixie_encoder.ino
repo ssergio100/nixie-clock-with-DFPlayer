@@ -25,6 +25,17 @@ RDA5807 rx;
 #define PINO_VCC_AMPLIFICADOR A2
 #define PINO_BUZZER 13
 
+// Endereços de Memória EEPROM para salvar as configurações
+#define EEPROM_ADDR_ALARME_HORA 0
+#define EEPROM_ADDR_ALARME_MIN 1
+#define EEPROM_ADDR_ALARME_LIGADO 2
+#define EEPROM_ADDR_ALARME_RADIO 3
+#define EEPROM_ADDR_ALARME_FDS 4
+#define EEPROM_ADDR_ALARME_SOM 5
+#define EEPROM_ADDR_ALARME_MP3_VOL 6
+#define EEPROM_ADDR_CHIME_SOM 7
+#define EEPROM_ADDR_CHIME_VOLUME 8
+
 Button myBtn(PINO_BOTAO_ENCODER);
 
 int8_t nixie_hora_dez;  //dezena da hora
@@ -37,16 +48,13 @@ const uint8_t pinos_bcd_k155id1[] = { 5, 6, 7, 8 };
 
 enum EstadoMenu {
     MODO_RELOGIO = 0,
-    SETUP_HORA_MINUTO = 1,
-    SETUP_ALARME_HORA_MINUTO = 2,
-    SETUP_ALARME_MODO_STATUS = 3,
-    SETUP_DATA_DIA_MES = 4,
-    SETUP_ANO = 5,
-    SETUP_ALARME_FDS = 6,
-    SETUP_ALARME_SOM_VOLUME = 7,
-    SETUP_CHIME_SOM_VOLUME = 8
+    SETUP_HORARIO = 1,
+    SETUP_ALARME = 2,
+    SETUP_DATA = 3,
+    SETUP_SONS = 4
 };
-uint8_t estado_menu = MODO_RELOGIO; // 0 = Relógio Normal, 1-8 = Menus de Setup
+uint8_t estado_menu = MODO_RELOGIO; // 0 = Relógio Normal, 1-4 = Menus de Setup
+uint8_t passo_setup = 0;           // Passo ativo em cada tela de setup
 uint8_t radio_modo_sintonia = 1; // Fixo no modo Scanner (1) por padrão
 int encoder_pos_anterior = 0;
 bool radio_ligado = false;
@@ -186,7 +194,7 @@ void setup() {
   rx.setMono(true); // Mono garante sinal mais limpo em transmissões fracas
   rx.setFrequency((uint16_t)(freqs[radio_estacao_atual] * 100 + 0.5)); // Arredondamento evita truncagem de float (+0.1 MHz offset)
 
-  encoder = new RotaryEncoder(PINO_ENCODER_B,PINO_ENCODER_A, RotaryEncoder::LatchMode::FOUR3);
+  encoder = new RotaryEncoder(PINO_ENCODER_A,PINO_ENCODER_B, RotaryEncoder::LatchMode::FOUR3);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_B), checkPosition, CHANGE);
 
@@ -198,20 +206,20 @@ void setup() {
   lcd.clear();
 
   // Carregar Alarmes e Configurações
-  alarme_hora = EEPROM.read(0);
+  alarme_hora = EEPROM.read(EEPROM_ADDR_ALARME_HORA);
   if (alarme_hora > 23) alarme_hora = 6;
-  alarme_min = EEPROM.read(1);
+  alarme_min = EEPROM.read(EEPROM_ADDR_ALARME_MIN);
   if (alarme_min > 59) alarme_min = 0;
-  alarme_ligado = EEPROM.read(2) == 1;
-  alarme_radio = EEPROM.read(3) == 1;
-  alarme_fds = EEPROM.read(4) == 1;
-  alarme_som = EEPROM.read(5);
+  alarme_ligado = EEPROM.read(EEPROM_ADDR_ALARME_LIGADO) == 1;
+  alarme_radio = EEPROM.read(EEPROM_ADDR_ALARME_RADIO) == 1;
+  alarme_fds = EEPROM.read(EEPROM_ADDR_ALARME_FDS) == 1;
+  alarme_som = EEPROM.read(EEPROM_ADDR_ALARME_SOM);
   if (alarme_som == 0 || alarme_som > 99) alarme_som = 1;
-  alarme_mp3_vol = EEPROM.read(6);
+  alarme_mp3_vol = EEPROM.read(EEPROM_ADDR_ALARME_MP3_VOL);
   if (alarme_mp3_vol > 30) alarme_mp3_vol = 25;
-  chime_som = EEPROM.read(7);
+  chime_som = EEPROM.read(EEPROM_ADDR_CHIME_SOM);
   if (chime_som == 0 || chime_som > 99) chime_som = 2;
-  chime_volume = EEPROM.read(8);
+  chime_volume = EEPROM.read(EEPROM_ADDR_CHIME_VOLUME);
   if (chime_volume > 30) chime_volume = 15;
 
   radio_total_estacoes = getFreqsSize();
@@ -276,18 +284,15 @@ void loop() {
           int dir = (encoder_pos_atual > encoder_pos_anterior) ? 1 : -1;
           encoder_pos_anterior = encoder_pos_atual;
           
-          if (dir < 0) { // Horário / Direita (Aumenta brilho)
+          if (dir > 0) { // Horário / Direita (Aumenta brilho)
               if (nixie_brilho_atual < 11) {
                   nixie_brilho_atual++;
                   beep(15);
-                  // Serial.print(F("Brilho Nixie: "));
-                  // Serial.println(nixie_brilho_atual);
               }
           } else { // Anti-horário / Esquerda (Diminui brilho)
               if (nixie_brilho_atual > 1) {
                   nixie_brilho_atual--;
                   beep(15);
-                  // Serial.print(F("Brilho Nixie: "));
               }
           }
       }

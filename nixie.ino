@@ -3,7 +3,27 @@ void atualizaNixieISR() {
   static uint8_t sub_estado = 0; // Varia de 0 a 11 (ciclo total de 3ms por dígito)
   
   // 1. Determina se o dígito deve estar ativo na animação do setup (piscar)
-  bool show_digits = (estado_menu == MODO_RELOGIO) || ((millis() / 300) % 2 == 0);
+  bool show_digits = true;
+  if (estado_menu > MODO_RELOGIO) {
+      bool blink_cycle = ((millis() / 300) % 2 == 0);
+      if (!blink_cycle) {
+          if (estado_menu == SETUP_HORARIO || estado_menu == SETUP_ALARME) {
+              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (estado_menu == SETUP_ALARME && passo_setup == 2 && digito_ativo == 1) show_digits = false;
+              else if (estado_menu == SETUP_ALARME && passo_setup == 3 && digito_ativo == 3) show_digits = false;
+          } else if (estado_menu == SETUP_DATA) {
+              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (passo_setup == 2 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+          } else if (estado_menu == SETUP_SONS) {
+              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (passo_setup == 2 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (passo_setup == 3 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+          }
+      }
+  }
   
   // 2. Determina se o LED base deve estar aceso neste momento
   bool led_aceso_ciclo = false;

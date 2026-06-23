@@ -1,30 +1,27 @@
 # Relatório de Desenvolvimento - Rádio Relógio Nixie
-**Sessão Concluída em:** 18 de Junho de 2026 (Madrugada)
+**Sessão Concluída em:** 22 de Junho de 2026
 
 ## 🚀 O que implementamos nesta maratona
 
-1. **Otimização Crítica de RAM (Código Serial Raiz):**
-   - Removemos a biblioteca pesada `DFRobotDFPlayerMini` e migramos para o envio direto via Serial pura (`df_send_cmd` com 10 bytes e checksum dinâmico).
-   - Aplicamos a macro `F()` em todas as strings de depuração serial.
-   - Isso reduziu drasticamente o uso da memória RAM (SRAM) do Arduino Nano, blindando o relógio contra travamentos por estouro de pilha (stack overflow).
+1. **Reestruturação Completa do Setup (Consolidado em 4 Telas):**
+   - Agrupamos as configurações do relógio em apenas 4 telas lógicas de setup:
+     1. **Horário:** Ajuste de `HH` (passo 0) e `MM` (passo 1).
+     2. **Alarme:** Ajuste de Hora (passo 0), Minuto (passo 1), Ativação `Sim`/`Sim/FS`/`Nao` (passo 2) e Tipo de alarme `Fm`/`mp3` (passo 3).
+     3. **Data/Ano:** Ajuste de Dia (passo 0), Mês (passo 1) e Ano (passo 2).
+     4. **Sons e Volume:** Ajuste de Faixa (`S01`) e Volume do Alarme, seguido de Faixa (`S02`) e Volume do Chime.
 
-2. **Resolução do Conflito de Áudio RDA5807 vs MP3 (Alta Impedância / DHIZ):**
-   - **O Problema:** Como a saída de áudio do RDA5807 e do DFPlayer compartilham a mesma entrada do amplificador sem resistores misturadores, o buffer de saída ativo do rádio (mesmo com volume zero ou mutado via `DMUTE`) mantinha baixíssima impedância, aterrando em AC o sinal analógico do MP3.
-   - **A Solução:** Ativamos o modo de Alta Impedância do rádio através do bit **DHIZ (Audio Output High-Z Disable)** no Registrador `02h`, chamando `rx.setAudioOutputHighImpedance(true)`.
-   - O rádio agora é eletricamente "desconectado" da linha de áudio sempre que está desligado ou quando o alarme MP3 dispara, liberando a linha para o áudio do DFPlayer tocar limpo e alto.
-   - Quando o rádio é ligado (via encoder ou alarme), chamamos `rx.setAudioOutputHighImpedance(false)` para reconectar as saídas à linha de áudio.
+2. **Ajuste Bidirecional com Incremento/Decremento:**
+   - O encoder rotativo agora suporta incremento (ao girar para a direita) e decremento (ao girar para a esquerda) de forma consistente e unificada em todos os parâmetros, incluindo brilho físico, sintonia de rádio, volume analógico e parâmetros de setup.
 
-3. **Sincronização Imediata de Volume:**
-   - Ao ligar o rádio ou sair do modo soneca (alarme de rádio), o software faz a leitura física instantânea do potenciômetro no pino A6 e define o volume (`rx.setVolume()`), garantindo que o som comece no nível esperado do seletor físico.
+3. **Piscamento Seletivo e Sincronizado (LCD & Nixies):**
+   - **LCD 16x2:** O parâmetro ativo sob ajuste pisca de forma limpa (apagando os caracteres na fase `OFF` do ciclo). Alinhamos o horário perfeitamente embaixo do indicador `HH:MM` e substituímos o prefixo `F` por `S` (Som) na tela de áudio.
+   - **Válvulas Nixie:** O piscamento é segmentado: apenas os dígitos correspondentes ao campo que está sendo editado (horas ou minutos) piscam na fase `OFF` da interrupção do Timer1, enquanto os demais dígitos permanecem estáveis no brilho configurado. Para os ajustes de um único dígito (como ativação ou tipo de alarme), exibe e pisca apenas a válvula correspondente, apagando as outras.
 
-4. **Implementação do Salva Displays (Screen Saver das Nixies):**
-   - Implementamos a rotina de proteção das válvulas Nixie contra desgaste desnecessário e *Cathode Poisoning*.
-   - O modo Screen Saver desliga todos os dígitos das Nixies ([relogio.ino](file:///C:/Users/sergi/OneDrive/Área de Trabalho/radio_relogio_nixie_encoder/relogio.ino#L4-L11)) e desativa os LEDs de base ([nixie.ino](file:///C:/Users/sergi/OneDrive/Área de Trabalho/radio_relogio_nixie_encoder/nixie.ino#L10)).
-   - A ativação/desativação manual ocorre via toque duplo no encoder em [encoder.ino](file:///C:/Users/sergi/OneDrive/Área de Trabalho/radio_relogio_nixie_encoder/encoder.ino#L94-L103), e qualquer movimentação do encoder ou clique acorda o relógio instantaneamente.
+4. **Remoção de Endereços Mágicos da EEPROM:**
+   - Criamos constantes nomeadas descritivas no arquivo principal (ex: `EEPROM_ADDR_ALARME_HORA`) para mapear os índices da memória EEPROM, removendo os números numéricos fixos (`0` a `8`) espalhados nas rotinas de gravação e leitura.
 
 ---
 
 ## 🛠️ O que nos aguarda na próxima bancada
 
-*Toda a pauta principal de programação foi concluída! Circuito de áudio, lógica de alarmes, multiplexação das Nixies e proteção de tela estão 100% integrados em software.*
-
+* Toda a interface de usuário por menus físicos e feedbacks visuais está atualizada e otimizada! Realize os testes na bancada com o hardware para validação do comportamento.
