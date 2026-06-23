@@ -2,7 +2,7 @@ uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
 const char* obterNomeDiaSemana(uint8_t wd);
 
 void atualiza_lcd() {
-  if (estado_menu == MODO_RELOGIO) {
+  if (state.estado_menu == MODO_RELOGIO && !state.radio_ligado && !state.alarme_tocando && !state.em_soneca) {
       return;
   }
   char linha1[17]; // 16 caracteres + terminador nulo
@@ -10,47 +10,50 @@ void atualiza_lcd() {
   static char last_linha1[17] = "";
   static char last_linha2[17] = "";
 
-  if (alarme_tocando) {
-      if (alarme_radio) {
+  if (state.alarme_tocando) {
+      if (cfg.alarme_radio) {
           strcpy(linha1, "Em alarme: Radio");
           char freq_buf[6];
-          dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf);
+          snprintf(freq_buf, sizeof(freq_buf), "%3d.%d", cfg.radio_frequencia / 100, (cfg.radio_frequencia / 10) % 10);
           snprintf(linha2, sizeof(linha2), "FM %s MHz", freq_buf);
       } else {
           strcpy(linha1, "Em alarme: MP3");
           strcpy(linha2, "Som: Alarme");
       }
-  } else if (em_soneca) {
+  } else if (state.em_soneca) {
       strcpy(linha1, "Em soneca");
-      long tempo_restante = (long)soneca_end_time - (long)millis();
+      long tempo_restante = (long)state.soneca_end_time - (long)millis();
       if (tempo_restante < 0) tempo_restante = 0;
       int minutos_restantes = (tempo_restante / 1000) / 60;
       int segundos_restantes = (tempo_restante / 1000) % 60;
       snprintf(linha2, sizeof(linha2), "Tempo: %02d:%02d", minutos_restantes, segundos_restantes);
-  } else if (radio_ligado) {
+  } else if (state.radio_ligado) {
       // MODO RÁDIO: Exibe informações do Rádio
       char freq_buf[6];
-      dtostrf(freqs[radio_estacao_atual], 5, 1, freq_buf); // Ex: "106.3" ou " 88.5"
+      snprintf(freq_buf, sizeof(freq_buf), "%3d.%d", cfg.radio_frequencia / 100, (cfg.radio_frequencia / 10) % 10); // Ex: "106.3" ou " 88.5"
       
-      if (radio_controla_volume) {
+      if (state.radio_controla_volume) {
           snprintf(linha1, sizeof(linha1), "FM %sMHz  VOL", freq_buf);
-          snprintf(linha2, sizeof(linha2), "Volume: %02d/15   ", volume_radio);
+          snprintf(linha2, sizeof(linha2), "Volume: %02d/15   ", state.volume_radio);
+      } else if (state.radio_modo_sintonia == 2) {
+          snprintf(linha1, sizeof(linha1), "FM %sMHz  CLK", freq_buf);
+          snprintf(linha2, sizeof(linha2), "Data: %02d/%02d/%04d", mday, mon, year);
       } else {
           snprintf(linha1, sizeof(linha1), "FM %sMHz  SCA", freq_buf);
           const char* stereo_str = rx.isStereo() ? "Stereo" : "Mono";
           snprintf(linha2, sizeof(linha2), "Sig:%-2d  %-8s", rx.getRssi(), stereo_str);
       }
-  } else if (estado_menu > MODO_RELOGIO) {
+  } else if (state.estado_menu > MODO_RELOGIO) {
       // MODO SETUP: Menus de Configuração
-      switch (estado_menu) {
+      switch (state.estado_menu) {
           case SETUP_HORARIO:
               strcpy(linha1, "Horario : HH:MM ");
               snprintf(linha2, sizeof(linha2), "          %02d:%02d ", hour, min);
               break;
           case SETUP_ALARME: {
               strcpy(linha1, "Alarme Atv    Tp");
-              const char* atv_str = alarme_ligado ? (alarme_fds ? "Sim/FS" : " Sim  ") : " Nao  ";
-              snprintf(linha2, sizeof(linha2), "%02d:%02d %-6s %-3s", alarme_hora, alarme_min, atv_str, alarme_radio ? "Fm" : "mp3");
+              const char* atv_str = cfg.alarme_ligado ? (cfg.alarme_fds ? "Sim/FS" : " Sim  ") : " Nao  ";
+              snprintf(linha2, sizeof(linha2), "%02d:%02d %-6s %-3s", cfg.alarme_hora, cfg.alarme_min, atv_str, cfg.alarme_radio ? "Fm" : "mp3");
               break;
           }
           case SETUP_DATA: {
@@ -61,7 +64,7 @@ void atualiza_lcd() {
           }
           case SETUP_SONS:
               strcpy(linha1, "Alarme e Chime  ");
-              snprintf(linha2, sizeof(linha2), "S%02d v%02d  S%02d v%02d", alarme_som, alarme_mp3_vol, chime_som, chime_volume);
+              snprintf(linha2, sizeof(linha2), "S%02d v%02d  S%02d v%02d", cfg.alarme_som, cfg.alarme_mp3_vol, cfg.chime_som, cfg.chime_volume);
               break;
           default:
               strcpy(linha1, "Salvando...     ");
@@ -70,23 +73,23 @@ void atualiza_lcd() {
       }
   } else {
       // MODO RELÓGIO/NORMAL: Linha 1 Status do Alarme
-      if (alarme_ligado) {
+      if (cfg.alarme_ligado) {
           char tipo_som[4]; // "Rad" ou "MP3"
-          if (alarme_radio) {
+          if (cfg.alarme_radio) {
               strcpy(tipo_som, "Rad");
           } else {
               strcpy(tipo_som, "MP3");
           }
 
           char status_fds[4]; // "FDS" ou "   "
-          if (alarme_fds) {
+          if (cfg.alarme_fds) {
               strcpy(status_fds, "FDS");
           } else {
               strcpy(status_fds, "   ");
           }
 
           // Formata: AL:06:00 Rad FDS
-          snprintf(linha1, sizeof(linha1), "AL:%02d:%02d %s %s", alarme_hora, alarme_min, tipo_som, status_fds);
+          snprintf(linha1, sizeof(linha1), "AL:%02d:%02d %s %s", cfg.alarme_hora, cfg.alarme_min, tipo_som, status_fds);
       } else {
           // Se desligado, preenche com espaços para limpar o resto da linha
           strcpy(linha1, "AL: Desligado   ");
@@ -97,8 +100,6 @@ void atualiza_lcd() {
   }
 
   // Rotina de Auto-Limpeza (Padding)
-  // Substitui os terminadores nulos precoces por espaços até completar os 16 caracteres.
-  // Isso garante que textos curtos sempre "apaguem" o lixo/fantasmas do texto anterior.
   for (int i = 0; i < 16; i++) {
       if (linha1[i] == '\0') {
           for (int j = i; j < 16; j++) linha1[j] = ' ';
@@ -115,29 +116,29 @@ void atualiza_lcd() {
   }
 
   // Pisca o campo sob ajuste no LCD (substitui os caracteres por espaços na fase OFF do blink)
-  if (estado_menu > MODO_RELOGIO) {
+  if (state.estado_menu > MODO_RELOGIO) {
       bool blink_on = ((millis() / 300) % 2 == 0);
       if (!blink_on) {
           int blink_start = -1;
           int blink_len = 0;
           
-          if (estado_menu == SETUP_HORARIO) {
-              if (passo_setup == 0) { blink_start = 10; blink_len = 2; }
-              else if (passo_setup == 1) { blink_start = 13; blink_len = 2; }
-          } else if (estado_menu == SETUP_ALARME) {
-              if (passo_setup == 0) { blink_start = 0; blink_len = 2; }
-              else if (passo_setup == 1) { blink_start = 3; blink_len = 2; }
-              else if (passo_setup == 2) { blink_start = 6; blink_len = 6; }
-              else if (passo_setup == 3) { blink_start = 13; blink_len = 3; }
-          } else if (estado_menu == SETUP_DATA) {
-              if (passo_setup == 0) { blink_start = 0; blink_len = 2; }
-              else if (passo_setup == 1) { blink_start = 3; blink_len = 2; }
-              else if (passo_setup == 2) { blink_start = 6; blink_len = 2; }
-          } else if (estado_menu == SETUP_SONS) {
-              if (passo_setup == 0) { blink_start = 1; blink_len = 2; }
-              else if (passo_setup == 1) { blink_start = 5; blink_len = 2; }
-              else if (passo_setup == 2) { blink_start = 10; blink_len = 2; }
-              else if (passo_setup == 3) { blink_start = 14; blink_len = 2; }
+          if (state.estado_menu == SETUP_HORARIO) {
+              if (state.passo_setup == 0) { blink_start = 10; blink_len = 2; }
+              else if (state.passo_setup == 1) { blink_start = 13; blink_len = 2; }
+          } else if (state.estado_menu == SETUP_ALARME) {
+              if (state.passo_setup == 0) { blink_start = 0; blink_len = 2; }
+              else if (state.passo_setup == 1) { blink_start = 3; blink_len = 2; }
+              else if (state.passo_setup == 2) { blink_start = 6; blink_len = 6; }
+              else if (state.passo_setup == 3) { blink_start = 13; blink_len = 3; }
+          } else if (state.estado_menu == SETUP_DATA) {
+              if (state.passo_setup == 0) { blink_start = 0; blink_len = 2; }
+              else if (state.passo_setup == 1) { blink_start = 3; blink_len = 2; }
+              else if (state.passo_setup == 2) { blink_start = 6; blink_len = 2; }
+          } else if (state.estado_menu == SETUP_SONS) {
+              if (state.passo_setup == 0) { blink_start = 1; blink_len = 2; }
+              else if (state.passo_setup == 1) { blink_start = 5; blink_len = 2; }
+              else if (state.passo_setup == 2) { blink_start = 10; blink_len = 2; }
+              else if (state.passo_setup == 3) { blink_start = 14; blink_len = 2; }
           }
           
           if (blink_start != -1) {

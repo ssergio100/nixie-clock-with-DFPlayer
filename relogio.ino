@@ -2,7 +2,7 @@
 void relogio() {
 
   // Se o Screen Saver manual estiver ativo, desliga todos os dígitos das Nixies
-  if (screen_saver_ativo) {
+  if (state.screen_saver_ativo) {
       nixie_hora_dez = -1;
       nixie_hora_uni = -1;
       nixie_min_dez = -1;
@@ -11,19 +11,20 @@ void relogio() {
   }
 
   // Lógica de Soneca (Override do Display)
-  if (em_soneca) {
-      long tempo_restante = (long)soneca_end_time - (long)millis();
+  if (state.em_soneca) {
+      long tempo_restante = (long)state.soneca_end_time - (long)millis();
       if (tempo_restante <= 0) {
           // Fim da soneca! O alarme volta a tocar.
-          em_soneca = false;
-          alarme_tocando = true;
-          alarme_start_time = millis(); // Reseta o tempo inicial do alarme ao acordar da soneca
+          state.em_soneca = false;
+          state.alarme_tocando = true;
+          state.alarme_start_time = millis(); // Reseta o tempo inicial do alarme ao acordar da soneca
           // Serial.println(F(">>> SONECA ACABOU! ACORDANDO <<<"));
-          if (alarme_radio) {
-              radio_ligado = true;
+          if (cfg.alarme_radio) {
+              state.radio_ligado = true;
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-              rx.setVolume(volume_radio); // Sincroniza o volume do rádio com o nível digital configurado
-              if (volume_radio == 0) {
+              rx.setFrequency(cfg.radio_frequencia); // Sintoniza na frequência salva
+              rx.setVolume(state.volume_radio); // Sincroniza o volume do rádio com o nível digital configurado
+              if (state.volume_radio == 0) {
                   rx.setMute(true);
               } else {
                   rx.setMute(false);
@@ -33,8 +34,8 @@ void relogio() {
               // Serial.println(F("Tocando alarme MP3..."));
               rx.setAudioOutputHighImpedance(true); // Garante o rádio desconectado
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              df_volume(alarme_mp3_vol);
-              df_loop(alarme_som);
+              df_volume(cfg.alarme_mp3_vol);
+              df_loop(cfg.alarme_som);
           }
       } else {
           // Exibe a contagem regressiva (Minutos : Segundos)
@@ -51,39 +52,45 @@ void relogio() {
 
   // Lógica do Efeito Caça-Níqueis (Anti-Poisoning)
   // A cada 15 minutos (00, 15, 30, 45) exatamente no segundo 0, inicia o efeito.
-  if (min % 15 == 0 && sec == 0 && !is_slot_machine && !alarme_tocando) {
-      is_slot_machine = true;
-      slot_machine_start = millis();
+  static int last_slot_machine_minute = -1;
+  if (min % 15 == 0 && sec == 0 && min != last_slot_machine_minute && !state.is_slot_machine && !state.alarme_tocando) {
+      state.is_slot_machine = true;
+      state.slot_machine_start = millis();
+      last_slot_machine_minute = min;
   }
 
-  if (is_slot_machine) {
-      unsigned long elapsed = millis() - slot_machine_start;
-      if (elapsed >= 4000) {
-          is_slot_machine = false;
+  if (min % 15 != 0) {
+      last_slot_machine_minute = -1;
+  }
+
+  if (state.is_slot_machine) {
+      unsigned long elapsed = millis() - state.slot_machine_start;
+      if (elapsed >= 2000) {
+          state.is_slot_machine = false;
       } else {
-          // Dígito 1 (Dezena de Hora) - Embaralha por 3.0s, depois trava
-          if (elapsed < 3000) {
+          // Dígito 1 (Dezena de Hora) - Embaralha por 1.0s, depois trava
+          if (elapsed < 1000) {
               nixie_hora_dez = (millis() / 50) % 10;
           } else {
               nixie_hora_dez = (hour < 10) ? -1 : (hour / 10);
           }
 
-          // Dígito 2 (Unidade de Hora) - Embaralha por 3.33s (3.0s + 1/3s), depois trava
-          if (elapsed < 3333) {
+          // Dígito 2 (Unidade de Hora) - Embaralha por 1.33s (1.0s + 1/3s), depois trava
+          if (elapsed < 1333) {
               nixie_hora_uni = ((millis() / 50) + 3) % 10;
           } else {
               nixie_hora_uni = hour % 10;
           }
 
-          // Dígito 3 (Dezena de Minuto) - Embaralha por 3.66s (3.33s + 1/3s), depois trava
-          if (elapsed < 3666) {
+          // Dígito 3 (Dezena de Minuto) - Embaralha por 1.66s (1.33s + 1/3s), depois trava
+          if (elapsed < 1666) {
               nixie_min_dez = ((millis() / 50) + 6) % 10;
           } else {
               nixie_min_dez = min / 10;
           }
 
-          // Dígito 4 (Unidade de Minuto) - Embaralha por 4.0s (3.66s + 1/3s), depois trava
-          if (elapsed < 4000) {
+          // Dígito 4 (Unidade de Minuto) - Embaralha por 2.0s (1.66s + 1/3s), depois trava
+          if (elapsed < 2000) {
               nixie_min_uni = ((millis() / 50) + 9) % 10;
           } else {
               nixie_min_uni = min % 10;

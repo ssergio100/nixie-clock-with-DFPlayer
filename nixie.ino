@@ -4,32 +4,32 @@ void atualizaNixieISR() {
   
   // 1. Determina se o dígito deve estar ativo na animação do setup (piscar)
   bool show_digits = true;
-  if (estado_menu > MODO_RELOGIO) {
+  if (state.estado_menu > MODO_RELOGIO) {
       bool blink_cycle = ((millis() / 300) % 2 == 0);
       if (!blink_cycle) {
-          if (estado_menu == SETUP_HORARIO || estado_menu == SETUP_ALARME) {
-              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
-              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
-              else if (estado_menu == SETUP_ALARME && passo_setup == 2 && digito_ativo == 1) show_digits = false;
-              else if (estado_menu == SETUP_ALARME && passo_setup == 3 && digito_ativo == 3) show_digits = false;
-          } else if (estado_menu == SETUP_DATA) {
-              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
-              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
-              else if (passo_setup == 2 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
-          } else if (estado_menu == SETUP_SONS) {
-              if (passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
-              else if (passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
-              else if (passo_setup == 2 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
-              else if (passo_setup == 3 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+          if (state.estado_menu == SETUP_HORARIO || state.estado_menu == SETUP_ALARME) {
+              if (state.passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (state.passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (state.estado_menu == SETUP_ALARME && state.passo_setup == 2 && digito_ativo == 1) show_digits = false;
+              else if (state.estado_menu == SETUP_ALARME && state.passo_setup == 3 && digito_ativo == 3) show_digits = false;
+          } else if (state.estado_menu == SETUP_DATA) {
+              if (state.passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (state.passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (state.passo_setup == 2 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+          } else if (state.estado_menu == SETUP_SONS) {
+              if (state.passo_setup == 0 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (state.passo_setup == 1 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
+              else if (state.passo_setup == 2 && (digito_ativo == 0 || digito_ativo == 1)) show_digits = false;
+              else if (state.passo_setup == 3 && (digito_ativo == 2 || digito_ativo == 3)) show_digits = false;
           }
       }
   }
   
   // 2. Determina se o LED base deve estar aceso neste momento
   bool led_aceso_ciclo = false;
-  if (screen_saver_ativo) {
+  if (state.screen_saver_ativo) {
     led_aceso_ciclo = false;
-  } else if (estado_menu == MODO_RELOGIO && !radio_ligado) {
+  } else if (state.estado_menu == MODO_RELOGIO && (!state.radio_ligado || state.radio_modo_sintonia == 2)) {
     static unsigned long ultimo_toggle_led = 0;
     static bool led_estado_pisca = true;
     if (millis() - ultimo_toggle_led >= 2000) {
@@ -37,14 +37,14 @@ void atualizaNixieISR() {
       led_estado_pisca = !led_estado_pisca;
     }
     led_aceso_ciclo = led_estado_pisca;
-  } else if (radio_ligado && radio_controla_volume) {
+  } else if (state.radio_ligado && state.radio_controla_volume) {
     led_aceso_ciclo = true;
-  } else if (estado_menu > MODO_RELOGIO) {
+  } else if (state.estado_menu > MODO_RELOGIO) {
     led_aceso_ciclo = true;
   }
 
   // 3. Controle PWM do brilho Nixie + LED base (sem nenhum delay bloqueante na ISR, exceto t_settle de 15us no início do ciclo)
-  if (show_digits && sub_estado < nixie_brilho_atual) {
+  if (show_digits && sub_estado < state.nixie_brilho_atual) {
     if (digito_ativo == 0 && nixie_hora_dez > 0) {
       escreve_byte_fast(nixie_hora_dez);
       if (sub_estado == 0) delayMicroseconds(15); // WAIT de assentamento (t_settle) apenas no primeiro passo do tubo
