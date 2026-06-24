@@ -25,7 +25,9 @@ void df_play(uint16_t track) {
 
 // Toca uma faixa e fica repetindo eternamente (ex: Alarme)
 void df_loop(uint16_t track) {
-  df_send_cmd(0x08, (uint8_t)(track >> 8), (uint8_t)(track & 0xFF));
+  df_play(track); // Usa 0x03 primeiro, garantindo que o chip comece a tocar
+  delay(100);
+  df_send_cmd(0x19, 0x00, 0x00); // 0x19: Single Loop (Repete a faixa atual)
 }
 
 // Para a música (usado no botão soneca ou desligar alarme)

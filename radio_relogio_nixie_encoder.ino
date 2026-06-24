@@ -96,6 +96,7 @@ const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
 RotaryEncoder *encoder = nullptr;
 
 uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y) {
+    if (y < 100) y += 2000;
     if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) {
         return 1; // Retorno de segurança (1 = Domingo) se os dados forem inválidos/não inicializados
     }
@@ -283,7 +284,7 @@ void loop() {
   }
   
   // Auto-desativação do alarme após 30 minutos (1800000 ms) tocando ininterruptamente
-  if (state.alarme_tocando && (tempo_atual_ms - state.alarme_start_time >= 1800000)) {
+  if (state.alarme_tocando && (millis() - state.alarme_start_time >= 1800000)) {
       state.alarme_tocando = false;
       state.em_soneca = false;
       df_stop();

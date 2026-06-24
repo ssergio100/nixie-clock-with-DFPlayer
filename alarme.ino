@@ -16,21 +16,22 @@ void verificarDisparoAlarme() {
                   state.radio_ligado = true;
                   rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
                   rx.setFrequency(cfg.radio_frequencia); // Sintoniza na frequência salva
-                  rx.setVolume(state.volume_radio); // Aplica volume digital configurado (nível 5 fixo)
-                  if (state.volume_radio == 0) {
-                      rx.setMute(true);
-                  } else {
-                      rx.setMute(false);
-                  }
+                  state.volume_radio = 5; // Aplica volume 5 fixo para o alarme
+                  rx.setVolume(state.volume_radio);
+                  rx.setMute(false);
                   digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
               }
           } else {
               rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
               state.radio_ligado = false; // Garante a sincronia do estado
+              
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              df_loop(cfg.alarme_som); // Toca o alarme PRIMEIRO e repete (clones ignoram volume se estiverem parados)
-              delay(150); // Dá tempo do clone carregar o MP3 na memória
-              df_volume(cfg.alarme_mp3_vol); // Sobe o volume agora que está tocando
+              
+              df_volume(cfg.alarme_mp3_vol); // Ajusta o volume primeiro
+              
+              delay(100); // Dá tempo do clone processar
+              
+              df_loop(cfg.alarme_som); // Agora toca e entra em repetição
           }
       }
   }

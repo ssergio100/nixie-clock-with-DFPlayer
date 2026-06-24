@@ -1,4 +1,3 @@
-
 void relogio() {
 
   // Se o Screen Saver manual estiver ativo, desliga todos os dígitos das Nixies

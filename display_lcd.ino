@@ -2,7 +2,7 @@ uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
 const char* obterNomeDiaSemana(uint8_t wd);
 
 void atualiza_lcd() {
-  if (state.estado_menu == MODO_RELOGIO && !state.radio_ligado && !state.alarme_tocando && !state.em_soneca) {
+  if (state.estado_menu == MODO_RELOGIO) {
       return;
   }
   char linha1[17]; // 16 caracteres + terminador nulo
