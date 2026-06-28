@@ -12,17 +12,7 @@ void ajustarFrequencia() {
 
         if (state.radio_modo_sintonia == 2) {
             // No modo Relógio do rádio, o encoder ajusta o brilho das Nixies
-            if (dir > 0) { // Horário / Direita (Aumenta brilho)
-                if (state.nixie_brilho_atual < 11) {
-                    state.nixie_brilho_atual++;
-                    beep(15);
-                }
-            } else { // Anti-horário / Esquerda (Diminui brilho)
-                if (state.nixie_brilho_atual > 1) {
-                    state.nixie_brilho_atual--;
-                    beep(15);
-                }
-            }
+            ajustarBrilhoNixie(dir);
         } else if (state.radio_controla_volume) {
             if (dir > 0) { // Girou para direita (Aumenta volume)
                 if (state.volume_radio < 15) state.volume_radio++;

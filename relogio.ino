@@ -1,13 +1,5 @@
 void relogio() {
 
-  // Se o Screen Saver manual estiver ativo, desliga todos os dígitos das Nixies
-  if (state.screen_saver_ativo) {
-      nixie_hora_dez = -1;
-      nixie_hora_uni = -1;
-      nixie_min_dez = -1;
-      nixie_min_uni = -1;
-      return;
-  }
 
   // Lógica de Soneca (Override do Display)
   if (state.em_soneca) {
@@ -47,6 +39,19 @@ void relogio() {
           nixie_min_uni = (segundos_restantes % 10);
           return; // Retorna para não exibir a hora real!
       }
+  }
+
+  // Exibição da Temperatura a cada 10 segundos (nos segundos terminados em 8 e 9, total de 2s)
+  if (sec % 10 >= 8 && state.nixie_brilho_atual != -2 && !state.alarme_tocando && !state.is_slot_machine) {
+      int temp = lerTemperatura();
+      if (temp < 0) temp = 0;
+      if (temp > 999) temp = 999;
+      
+      nixie_hora_dez = -1; // Apagado (X)
+      nixie_hora_uni = (temp >= 100) ? (temp / 100) : -1; // Apaga o zero à esquerda se < 10.0°C (ex: 9.2°C -> "  92")
+      nixie_min_dez = (temp / 10) % 10;
+      nixie_min_uni = temp % 10;
+      return; // Retorna para não exibir a hora real!
   }
 
   // Lógica do Efeito Caça-Níqueis (Anti-Poisoning)
@@ -104,4 +109,33 @@ void relogio() {
   nixie_hora_uni = (hour % 10);
   nixie_min_dez = (min / 10);
   nixie_min_uni = (min % 10);
+}
+
+int lerTemperatura() {
+  static unsigned long ultimaLeitura = 0;
+  static int tempRetorno = 250; // valor padrão inicial seguro (25.0 °C)
+  static float tempFiltrada = 0.0;
+  static bool primeiraLeitura = true;
+  
+  // Só lê o sensor físico a cada 1000ms para evitar auto-aquecimento e desperdício de CPU
+  if (millis() - ultimaLeitura >= 1000 || ultimaLeitura == 0) {
+    ultimaLeitura = millis();
+    
+    long soma = 0;
+    for (int i = 0; i < 20; i++) {
+      soma += analogRead(PINO_TEMP);
+      delayMicroseconds(150);
+    }
+    float mediaADC = soma / 20.0;
+    float tempInst = (mediaADC * 110.0) / 1024.0;
+    
+    if (primeiraLeitura) {
+      tempFiltrada = tempInst;
+      primeiraLeitura = false;
+    } else {
+      tempFiltrada = (tempInst * 0.15) + (tempFiltrada * 0.85);
+    }
+    tempRetorno = (int)(tempFiltrada * 10.0 + 0.5); // Ex: 17.5 °C -> 175
+  }
+  return tempRetorno;
 }

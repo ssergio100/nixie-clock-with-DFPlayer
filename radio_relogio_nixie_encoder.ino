@@ -23,6 +23,7 @@ RDA5807 rx;
 #define PINO_BOTAO_ENCODER 4
 #define PINO_VCC_AMPLIFICADOR A2
 #define PINO_BUZZER 13
+#define PINO_TEMP A6
 
 // Structs para agrupamento e desacoplamento de estado e configuração
 struct Config {
@@ -47,14 +48,13 @@ struct SystemState {
     bool radio_controla_volume = false;
     int volume_radio = 1;
     int volume_mp3 = 10;
-    int nixie_brilho_atual = 6;
+    int nixie_brilho_atual = 5;
     bool alarme_tocando = false;
     unsigned long alarme_start_time = 0;
     bool em_soneca = false;
     unsigned long soneca_end_time = 0;
     bool is_slot_machine = false;
     unsigned long slot_machine_start = 0;
-    bool screen_saver_ativo = false;
     unsigned long bloqueio_clique_ate = 0;
     bool pressionadoLongo = false;
     uint16_t total_faixas = 0;
@@ -95,6 +95,8 @@ const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
 
 RotaryEncoder *encoder = nullptr;
 
+void ajustarBrilhoNixie(int dir);
+
 uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y) {
     if (y < 100) y += 2000;
     if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) {
@@ -122,6 +124,8 @@ const char* obterNomeDiaSemana(uint8_t wd) {
 
 void setup() {
   Serial.begin(9600);
+
+  analogReference(INTERNAL);
 
   pinMode(PINO_BUZZER, OUTPUT);
   pinMode(PINO_VCC_AMPLIFICADOR, OUTPUT);
@@ -215,14 +219,7 @@ void setup() {
 void loop() {
   encoder_pos_atual = encoder->getPosition();
 
-  // Trata o despertar através do giro do encoder
-  if (state.encoder_pos_anterior != encoder_pos_atual) {
-      if (state.screen_saver_ativo) {
-          state.screen_saver_ativo = false;
-          state.encoder_pos_anterior = encoder_pos_atual;
-          beep(50);
-      }
-  }
+  // O despertar do estado totalmente desligado é tratado diretamente na rotação para a direita
 
   tempo_atual_ms = millis();
   myBtn.read();
@@ -264,21 +261,10 @@ void loop() {
       relogio();
       
       // Controle de brilho manual das Nixies via encoder em modo Relógio
-      if (state.encoder_pos_anterior != encoder_pos_atual && !state.screen_saver_ativo) {
+      if (state.encoder_pos_anterior != encoder_pos_atual) {
           int dir = (encoder_pos_atual > state.encoder_pos_anterior) ? 1 : -1;
           state.encoder_pos_anterior = encoder_pos_atual;
-          
-          if (dir > 0) { // Horário / Direita (Aumenta brilho)
-              if (state.nixie_brilho_atual < 11) {
-                  state.nixie_brilho_atual++;
-                  beep(15);
-              }
-          } else { // Anti-horário / Esquerda (Diminui brilho)
-              if (state.nixie_brilho_atual > 1) {
-                  state.nixie_brilho_atual--;
-                  beep(15);
-              }
-          }
+          ajustarBrilhoNixie(dir);
       }
     }
   }
@@ -303,3 +289,4 @@ void loop() {
     atualiza_lcd();
   }
 }
+

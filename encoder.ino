@@ -108,41 +108,15 @@ void tratarToqueCurto() {
     }
 }
 
-void toggleScreenSaver() {
-    // Só entra/sai do screen saver se não estivermos no setup, com rádio ligado, ou tocando alarme
-    if (state.estado_menu > MODO_RELOGIO || state.radio_ligado || state.alarme_tocando || state.em_soneca) {
-        return;
-    }
-    state.screen_saver_ativo = !state.screen_saver_ativo;
-    beep(70); delay(80); beep(70); // bipe duplo indicando transição
-}
-
 void processarBotao() {
-  // 1. Se o Screen Saver estiver ativo, intercepta o botão para acordar
-  if (state.screen_saver_ativo) {
-      static bool botao_acordou_tela = false;
-      if (myBtn.wasPressed()) {
-          botao_acordou_tela = true;
-          state.screen_saver_ativo = false;
-          state.bloqueio_clique_ate = millis() + 600; // Bloqueia cliques por 600ms
-          beep(50);
-      }
-      if (botao_acordou_tela) {
-          if (myBtn.wasReleased()) {
-              botao_acordou_tela = false;
-          }
-          return; // Consome o evento e acorda o relógio
-      }
-  }
-
-  // 2. Se estiver no período de bloqueio pós-despertar, consome os eventos
+  // 1. Se estiver no período de bloqueio pós-despertar, consome os eventos
   if (millis() < state.bloqueio_clique_ate) {
       myBtn.wasPressed();
       myBtn.wasReleased();
       return;
   }
 
-  // 3. Se o botão for mantido pressionado (Toque Longo)
+  // 2. Se o botão for mantido pressionado (Toque Longo)
   if (myBtn.pressedFor(LONG_PRESS) && !state.pressionadoLongo) {
       state.pressionadoLongo = true; // Trava para não repetir
       
@@ -185,31 +159,14 @@ void processarBotao() {
       }
   }
 
-  // 4. Detecção de Cliques (Toque Curto vs Toque Duplo)
-  static unsigned long last_release_time = 0;
-  static bool pending_click = false;
-
+  // 3. Detecção de Clique Simples (sem delay para toque duplo)
   if (myBtn.wasReleased()) {
       if (state.pressionadoLongo) {
           // Acabou de soltar após um toque longo. Apenas reseta a trava.
           state.pressionadoLongo = false;
       } else {
-          unsigned long current_time = millis();
-          if (pending_click && (current_time - last_release_time < 300)) {
-              // Foi um Toque Duplo!
-              pending_click = false;
-              toggleScreenSaver();
-          } else {
-              pending_click = true;
-              last_release_time = current_time;
-          }
+          tratarToqueCurto();
       }
-  }
-
-  // Se passou o tempo limite (300ms) e temos um clique pendente, executa o toque curto
-  if (pending_click && (millis() - last_release_time >= 300)) {
-      pending_click = false;
-      tratarToqueCurto();
   }
 }
 

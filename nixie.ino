@@ -27,16 +27,21 @@ void atualizaNixieISR() {
   
   // 2. Determina se o LED base deve estar aceso neste momento
   bool led_aceso_ciclo = false;
-  if (state.screen_saver_ativo) {
-    led_aceso_ciclo = false;
-  } else if (state.estado_menu == MODO_RELOGIO && (!state.radio_ligado || state.radio_modo_sintonia == 2)) {
-    static unsigned long ultimo_toggle_led = 0;
-    static bool led_estado_pisca = true;
-    if (millis() - ultimo_toggle_led >= 2000) {
-      ultimo_toggle_led = millis();
-      led_estado_pisca = !led_estado_pisca;
+  if (state.estado_menu == MODO_RELOGIO && (!state.radio_ligado || state.radio_modo_sintonia == 2)) {
+    bool exibindo_temperatura = (sec % 10 >= 8 && state.nixie_brilho_atual != -2 && !state.alarme_tocando && !state.is_slot_machine);
+    if (exibindo_temperatura) {
+      led_aceso_ciclo = false; // Apaga o LED base durante a exibição de temperatura
+    } else if (state.nixie_brilho_atual >= 0 || state.alarme_tocando || state.em_soneca) {
+      static unsigned long ultimo_toggle_led = 0;
+      static bool led_estado_pisca = true;
+      if (millis() - ultimo_toggle_led >= 500) {
+        ultimo_toggle_led = millis();
+        led_estado_pisca = !led_estado_pisca;
+      }
+      led_aceso_ciclo = led_estado_pisca;
+    } else {
+      led_aceso_ciclo = false; // Apaga o LED base nos níveis -1 e -2
     }
-    led_aceso_ciclo = led_estado_pisca;
   } else if (state.radio_ligado && state.radio_controla_volume) {
     led_aceso_ciclo = true;
   } else if (state.estado_menu > MODO_RELOGIO) {
@@ -44,7 +49,24 @@ void atualizaNixieISR() {
   }
 
   // 3. Controle PWM do brilho Nixie + LED base (sem nenhum delay bloqueante na ISR, exceto t_settle de 15us no início do ciclo)
-  if (show_digits && sub_estado < state.nixie_brilho_atual) {
+  int limite_brilho = state.nixie_brilho_atual;
+  if (state.estado_menu > MODO_RELOGIO || state.alarme_tocando || state.em_soneca) {
+    if (limite_brilho < 0) {
+      limite_brilho = 6; // Brilho razoável se estivesse desligado/mínimo
+    } else {
+      limite_brilho = limite_brilho + 1;
+    }
+  } else {
+    if (limite_brilho >= 0) {
+      limite_brilho = limite_brilho + 1;
+    } else if (limite_brilho == -1) {
+      limite_brilho = 1; // Brilho mínimo ativo
+    } else if (limite_brilho == -2) {
+      limite_brilho = 0; // Totalmente desligado
+    }
+  }
+
+  if (show_digits && sub_estado < limite_brilho) {
     if (digito_ativo == 0 && nixie_hora_dez > 0) {
       escreve_byte_fast(nixie_hora_dez);
       if (sub_estado == 0) delayMicroseconds(15); // WAIT de assentamento (t_settle) apenas no primeiro passo do tubo
@@ -90,5 +112,19 @@ void escreve_byte_fast(byte x) {
   if (x & 0b00000010) digitalWrite(pinos_bcd_k155id1[1], HIGH); else digitalWrite(pinos_bcd_k155id1[1], LOW);
   if (x & 0b00000100) digitalWrite(pinos_bcd_k155id1[2], HIGH); else digitalWrite(pinos_bcd_k155id1[2], LOW);
   if (x & 0b00001000) digitalWrite(pinos_bcd_k155id1[3], HIGH); else digitalWrite(pinos_bcd_k155id1[3], LOW);
+}
+
+void ajustarBrilhoNixie(int dir) {
+  if (dir > 0) { // Horário / Direita (Aumenta brilho)
+    if (state.nixie_brilho_atual < 10) {
+      state.nixie_brilho_atual++;
+      beep(15);
+    }
+  } else { // Anti-horário / Esquerda (Diminui brilho)
+    if (state.nixie_brilho_atual > -2) {
+      state.nixie_brilho_atual--;
+      beep(15);
+    }
+  }
 }
 
