@@ -236,6 +236,7 @@ void setup() {
 
   // Inicializa a multiplexação por interrupção via Timer1 (a cada 250
   // microssegundos)
+  prepararQuadroNixie();
   Timer1.initialize(250);
   Timer1.attachInterrupt(atualizaNixieISR);
 }
@@ -316,4 +317,6 @@ void loop() {
     tempo_ultimo_lcd = tempo_atual_ms;
     atualiza_lcd();
   }
+
+  prepararQuadroNixie();
 }
