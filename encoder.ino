@@ -3,7 +3,7 @@ uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y);
 void salvar_e_sair() {
     state.estado_menu = MODO_RELOGIO;
     state.passo_setup = 0;
-    beep(100); delay(160); beep(100); // Bipe duplo de SAÍDA mais longo
+    beepDuplo(); // Bipe duplo de SAÍDA
     
     // Parar qualquer preview de som e desligar o amplificador
     dfplayer_stop();
@@ -50,7 +50,7 @@ void tratarToqueCurto() {
                 cancelarChime();
                 // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
                 lerDataHoraRTC();
-                beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
+                beepDuplo(); // Bipe duplo de ENTRADA
                 state.estado_menu = SETUP_HORARIO;
                 state.passo_setup = 0;
             } else {
@@ -123,7 +123,7 @@ void processarBotao() {
           state.alarme_tocando = false;
           state.em_soneca = true;
           state.soneca_end_time = millis() + TEMPO_SONECA_MS; // Reseta a contagem
-          beep(100); delay(160); beep(100);
+          beepDuplo();
           
           pararAudioAlarme();
           atualiza_lcd();

@@ -235,6 +235,7 @@ void loop() {
   tempo_atual_ms = millis();
   encoderButton.read();
   processarBotao();
+  atualizarAlertas();
   atualizarGerenciadorAudio();
 
   // Controle de luz de fundo do LCD (apenas liga no setup)
