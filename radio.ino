@@ -1,5 +1,72 @@
+bool busca_radio_ativa = false;
+int8_t busca_radio_direcao = 0;
+uint8_t busca_radio_passos = 0;
+unsigned long busca_radio_sintonia_ms = 0;
+
+const uint8_t MAX_PASSOS_BUSCA_RADIO = 170;
+const unsigned long INTERVALO_BUSCA_RADIO_MS = 100;
+
+void restaurarMuteRadio() {
+    rx.setMute(state.volume_radio == 0);
+}
+
+void cancelarBuscaRadio() {
+    if (!busca_radio_ativa) return;
+
+    busca_radio_ativa = false;
+    restaurarMuteRadio();
+}
+
+void sintonizarProximaFrequenciaBusca() {
+    if (busca_radio_direcao > 0) {
+        cfg.radio_frequencia += 20;
+        if (cfg.radio_frequencia > 10790) cfg.radio_frequencia = 7610;
+    } else {
+        cfg.radio_frequencia -= 20;
+        if (cfg.radio_frequencia < 7610) cfg.radio_frequencia = 10790;
+    }
+
+    rx.setFrequency(cfg.radio_frequencia);
+    atualizarDisplay();
+    busca_radio_passos++;
+    busca_radio_sintonia_ms = millis();
+}
+
+void iniciarBuscaRadio(int8_t direcao) {
+    busca_radio_ativa = true;
+    busca_radio_direcao = (direcao > 0) ? 1 : -1;
+    busca_radio_passos = 0;
+    rx.setMute(true);
+    sintonizarProximaFrequenciaBusca();
+}
+
+void atualizarBuscaRadio() {
+    if (!busca_radio_ativa) return;
+
+    if ((millis() - busca_radio_sintonia_ms) < INTERVALO_BUSCA_RADIO_MS) {
+        return;
+    }
+
+    bool encontrou_estacao = rx.getRssi() >= SIGNAL_THRESHOLD;
+    if (encontrou_estacao || busca_radio_passos >= MAX_PASSOS_BUSCA_RADIO) {
+        busca_radio_ativa = false;
+        restaurarMuteRadio();
+        atualiza_lcd();
+        return;
+    }
+
+    sintonizarProximaFrequenciaBusca();
+}
+
 void radio() {
+    if (busca_radio_ativa &&
+        (state.alarme_tocando || state.radio_controla_volume ||
+         state.radio_modo_sintonia != 1)) {
+        cancelarBuscaRadio();
+    }
+
     ajustarFrequencia();
+    atualizarBuscaRadio();
     atualizarDisplay();
 }
 
@@ -33,47 +100,7 @@ void ajustarFrequencia() {
             // Serial.print(F("Volume digital: "));
             // Serial.println(state.volume_radio);
         } else {
-            // Lógica de sintonia direta do rádio
-            if (dir > 0) { // Girou para direita (Avança frequência)
-                  if (state.radio_modo_sintonia == 1 || state.radio_modo_sintonia == 2) {
-                      rx.setMute(true); // Silencia o rádio durante a busca
-                      int steps = 0;
-                       do {
-                           cfg.radio_frequencia += 20; // 0.2 MHz (20 * 10 kHz)
-                           if (cfg.radio_frequencia > 10790) cfg.radio_frequencia = 7610;
-                           rx.setFrequency(cfg.radio_frequencia);
-                           atualizarDisplay(); 
-                           
-                           delay(100); // Dá tempo do PLL travar e estabilizar o RSSI
-                           steps++;
-                       } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 170);
-                      rx.setMute(false); // Restaura o áudio ao travar na estação
-                  } else {
-                      cfg.radio_frequencia += 20;
-                      if (cfg.radio_frequencia > 10790) cfg.radio_frequencia = 7610;
-                      rx.setFrequency(cfg.radio_frequencia);
-                  }
-            } else { // Girou para esquerda (Recua frequência)
-                  if (state.radio_modo_sintonia == 1 || state.radio_modo_sintonia == 2) {
-                      rx.setMute(true); // Silencia o rádio durante a busca
-                      int steps = 0;
-                       do {
-                           cfg.radio_frequencia -= 20; // 0.2 MHz (20 * 10 kHz)
-                           if (cfg.radio_frequencia < 7610) cfg.radio_frequencia = 10790;
-                           rx.setFrequency(cfg.radio_frequencia);
-                           atualizarDisplay(); 
-                           
-                           delay(100); // Dá tempo do PLL travar e estabilizar o RSSI
-                           steps++;
-                       } while (rx.getRssi() < SIGNAL_THRESHOLD && steps < 170);
-                      rx.setMute(false); // Restaura o áudio ao travar na estação
-                  } else {
-                      cfg.radio_frequencia -= 20;
-                      if (cfg.radio_frequencia < 7610) cfg.radio_frequencia = 10790;
-                      rx.setFrequency(cfg.radio_frequencia);
-                  }
-            }
-            rx.setFrequency(cfg.radio_frequencia);
+            iniciarBuscaRadio(dir);
             atualiza_lcd();
         }
     }

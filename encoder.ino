@@ -132,6 +132,7 @@ void processarBotao() {
           salvar_e_sair();
       } else {
           cancelarChime();
+          cancelarBuscaRadio();
           if (!state.radio_ligado) {
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
               state.radio_controla_volume = false; // Inicia sempre no modo sintonia (SCA)

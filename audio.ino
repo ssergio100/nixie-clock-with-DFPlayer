@@ -44,6 +44,7 @@ bool iniciarChime() {
     return false;
   }
 
+  cancelarBuscaRadio();
   radio_ativo_antes_chime = state.radio_ligado;
   if (radio_ativo_antes_chime) {
     rx.setAudioOutputHighImpedance(true);
@@ -59,6 +60,7 @@ bool iniciarChime() {
 }
 
 void iniciarAudioAlarme() {
+  cancelarBuscaRadio();
   cancelarChime();
 
   EstadoAudioGerenciado estado_desejado =
