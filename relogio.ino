@@ -9,25 +9,7 @@ void relogio() {
           state.em_soneca = false;
           state.alarme_tocando = true;
           state.alarme_start_time = millis(); // Reseta o tempo inicial do alarme ao acordar da soneca
-          // Serial.println(F(">>> SONECA ACABOU! ACORDANDO <<<"));
-          if (cfg.alarme_radio) {
-              state.radio_ligado = true;
-              rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-              rx.setFrequency(cfg.radio_frequencia); // Sintoniza na frequência salva
-              rx.setVolume(state.volume_radio); // Sincroniza o volume do rádio com o nível digital configurado
-              if (state.volume_radio == 0) {
-                  rx.setMute(true);
-              } else {
-                  rx.setMute(false);
-              }
-              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-          } else {
-              // Serial.println(F("Tocando alarme MP3..."));
-              rx.setAudioOutputHighImpedance(true); // Garante o rádio desconectado
-              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              dfplayer_volume(cfg.alarme_mp3_vol);
-              dfplayer_loop(cfg.alarme_som);
-          }
+          iniciarAudioAlarme();
       } else {
           // Exibe a contagem regressiva (Minutos : Segundos)
           int minutos_restantes = (tempo_restante / 1000) / 60;

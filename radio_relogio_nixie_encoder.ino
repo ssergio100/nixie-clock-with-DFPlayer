@@ -249,6 +249,7 @@ void loop() {
   tempo_atual_ms = millis();
   encoderButton.read();
   processarBotao();
+  atualizarGerenciadorAudio();
 
   // Controle de luz de fundo do LCD (apenas liga no setup)
   static bool last_lcd_on = false;
@@ -303,10 +304,7 @@ void loop() {
   if (state.alarme_tocando && (millis() - state.alarme_start_time >= 1800000)) {
     state.alarme_tocando = false;
     state.em_soneca = false;
-    dfplayer_stop();
-    rx.setAudioOutputHighImpedance(true);
-    digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // Desliga amplificador
-    state.radio_ligado = false;
+    pararAudioAlarme();
     EEPROM.put(0, cfg);
     atualiza_lcd();
   }

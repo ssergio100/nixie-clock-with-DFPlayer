@@ -11,28 +11,7 @@ void verificarDisparoAlarme() {
           last_alarm_min = min; // Trava para não tocar de novo no mesmo minuto
           state.alarme_tocando = true; // Flag de Soneca/Cancelamento
           state.alarme_start_time = millis(); // Salva o tempo inicial do disparo do alarme
-          if (cfg.alarme_radio) {
-              if (!state.radio_ligado) {
-                  state.radio_ligado = true;
-                  rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
-                  rx.setFrequency(cfg.radio_frequencia); // Sintoniza na frequência salva
-                  state.volume_radio = 5; // Aplica volume 5 fixo para o alarme
-                  rx.setVolume(state.volume_radio);
-                  rx.setMute(false);
-                  digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-              }
-          } else {
-              rx.setAudioOutputHighImpedance(true); // Desconecta o rádio da linha
-              state.radio_ligado = false; // Garante a sincronia do estado
-              
-              digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              
-              dfplayer_volume(cfg.alarme_mp3_vol); // Ajusta o volume primeiro
-              
-              delay(100); // Dá tempo do clone processar
-              
-              dfplayer_loop(cfg.alarme_som); // Agora toca e entra em repetição
-          }
+          iniciarAudioAlarme();
       }
   }
   // Reseta a trava no minuto seguinte

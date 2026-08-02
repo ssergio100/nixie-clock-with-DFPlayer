@@ -23,10 +23,7 @@ void tratarToqueCurto() {
         state.em_soneca = false;
         beep(500); // Confirma encerramento com bipe longo
         
-        dfplayer_stop();
-        rx.setAudioOutputHighImpedance(true);
-        digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
-        state.radio_ligado = false;
+        pararAudioAlarme();
         EEPROM.put(0, cfg);
         atualiza_lcd();
     } else {
@@ -50,6 +47,7 @@ void tratarToqueCurto() {
         } else {
             // No modo SETUP / RELÓGIO
             if (state.estado_menu == MODO_RELOGIO) {
+                cancelarChime();
                 // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
                 lerDataHoraRTC();
                 beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
@@ -127,15 +125,13 @@ void processarBotao() {
           state.soneca_end_time = millis() + TEMPO_SONECA_MS; // Reseta a contagem
           beep(100); delay(160); beep(100);
           
-          dfplayer_stop();
-          rx.setAudioOutputHighImpedance(true);
-          digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
-          state.radio_ligado = false;
+          pararAudioAlarme();
           atualiza_lcd();
       } else if (state.estado_menu > MODO_RELOGIO) {
           // MODO SETUP: Toque longo salva e sai imediatamente
           salvar_e_sair();
       } else {
+          cancelarChime();
           if (!state.radio_ligado) {
               rx.setAudioOutputHighImpedance(false); // Conecta o rádio à linha
               state.radio_controla_volume = false; // Inicia sempre no modo sintonia (SCA)
