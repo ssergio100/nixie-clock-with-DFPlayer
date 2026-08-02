@@ -65,28 +65,28 @@ void run_setup_menu() {
                     else cfg.alarme_som = (cfg.alarme_som <= 1) ? max_faixas : cfg.alarme_som - 1;
 
                     digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-                    df_volume(cfg.alarme_mp3_vol);
+                    dfplayer_volume(cfg.alarme_mp3_vol);
                     delay(50);
-                    df_play(cfg.alarme_som);
+                    dfplayer_play(cfg.alarme_som);
                 } else if (state.passo_setup == 1) { // Vol Alarme
                     if (dir > 0) cfg.alarme_mp3_vol = (cfg.alarme_mp3_vol >= 30) ? 0 : cfg.alarme_mp3_vol + 1;
                     else cfg.alarme_mp3_vol = (cfg.alarme_mp3_vol == 0) ? 30 : cfg.alarme_mp3_vol - 1;
 
-                    df_volume(cfg.alarme_mp3_vol);
+                    dfplayer_volume(cfg.alarme_mp3_vol);
                 } else if (state.passo_setup == 2) { // Faixa Chime
                     uint16_t max_faixas = (state.total_faixas > 0) ? state.total_faixas : 99;
                     if (dir > 0) cfg.chime_som = (cfg.chime_som >= max_faixas) ? 1 : cfg.chime_som + 1;
                     else cfg.chime_som = (cfg.chime_som <= 1) ? max_faixas : cfg.chime_som - 1;
 
                     digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-                    df_volume(cfg.chime_volume);
+                    dfplayer_volume(cfg.chime_volume);
                     delay(50);
-                    df_play(cfg.chime_som);
+                    dfplayer_play(cfg.chime_som);
                 } else if (state.passo_setup == 3) { // Vol Chime
                     if (dir > 0) cfg.chime_volume = (cfg.chime_volume >= 30) ? 0 : cfg.chime_volume + 1;
                     else cfg.chime_volume = (cfg.chime_volume == 0) ? 30 : cfg.chime_volume - 1;
 
-                    df_volume(cfg.chime_volume);
+                    dfplayer_volume(cfg.chime_volume);
                 }
                 break;
         }

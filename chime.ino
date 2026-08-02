@@ -12,9 +12,9 @@ void verificarChime() {
       digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // Liga o amplificador
     }
 
-    df_volume(cfg.chime_volume);
+    dfplayer_volume(cfg.chime_volume);
     delay(50);
-    df_play(cfg.chime_som);
+    dfplayer_play(cfg.chime_som);
 
     // Aguarda 2 segundos para o som tocar
     delay(2000);
@@ -22,7 +22,7 @@ void verificarChime() {
     if (state.radio_ligado) {
       rx.setAudioOutputHighImpedance(false); // Reconecta o rádio à linha de áudio
     } else {
-      df_stop();
+      dfplayer_stop();
       digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // Desliga o amplificador
     }
   } else {

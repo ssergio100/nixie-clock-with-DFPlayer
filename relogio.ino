@@ -25,8 +25,8 @@ void relogio() {
               // Serial.println(F("Tocando alarme MP3..."));
               rx.setAudioOutputHighImpedance(true); // Garante o rádio desconectado
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
-              df_volume(cfg.alarme_mp3_vol);
-              df_loop(cfg.alarme_som);
+              dfplayer_volume(cfg.alarme_mp3_vol);
+              dfplayer_loop(cfg.alarme_som);
           }
       } else {
           // Exibe a contagem regressiva (Minutos : Segundos)
@@ -42,7 +42,7 @@ void relogio() {
   }
 
   // Exibição da Temperatura a cada 10 segundos (nos segundos terminados em 8 e 9, total de 2s)
-  if (sec % 10 >= 8 && state.nixie_brilho_atual != -2 && !state.alarme_tocando && !state.is_slot_machine) {
+  if ((sec % TEMP_EXIBIR_INTERVALO) >= (TEMP_EXIBIR_INTERVALO - TEMP_EXIBIR_DURACAO) && state.nixie_brilho_atual != -3 && !state.alarme_tocando && !state.is_slot_machine) {
       int temp = lerTemperatura();
       if (temp < 0) temp = 0;
       if (temp > 999) temp = 999;

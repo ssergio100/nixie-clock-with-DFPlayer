@@ -6,7 +6,7 @@ void salvar_e_sair() {
     beep(100); delay(160); beep(100); // Bipe duplo de SAÍDA mais longo
     
     // Parar qualquer preview de som e desligar o amplificador
-    df_stop();
+    dfplayer_stop();
     digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
     
     wday = calcularDiaSemana(mday, mon, year);
@@ -23,7 +23,7 @@ void tratarToqueCurto() {
         state.em_soneca = false;
         beep(500); // Confirma encerramento com bipe longo
         
-        df_stop();
+        dfplayer_stop();
         rx.setAudioOutputHighImpedance(true);
         digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
         state.radio_ligado = false;
@@ -70,12 +70,12 @@ void tratarToqueCurto() {
                     // Controle específico de áudio para preview de sons e volume
                     if (state.estado_menu == SETUP_SONS) {
                         if (state.passo_setup == 2) { // Entrou no Som Chime, para alarme e inicia chime
-                            df_stop();
+                            dfplayer_stop();
                             delay(50);
                             digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-                            df_volume(cfg.chime_volume);
+                            dfplayer_volume(cfg.chime_volume);
                             delay(50);
-                            df_play(cfg.chime_som);
+                            dfplayer_play(cfg.chime_som);
                         }
                     }
                 } else {
@@ -85,7 +85,7 @@ void tratarToqueCurto() {
                         salvar_e_sair();
                     } else {
                         // Para o preview caso esteja saindo de alguma tela com som (embora no fluxo atual só a última tenha som)
-                        df_stop();
+                        dfplayer_stop();
                         digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
 
                         state.estado_menu++;
@@ -95,9 +95,9 @@ void tratarToqueCurto() {
                         // Se entrou na tela de sons, inicia o preview do som de alarme (passo 0)
                         if (state.estado_menu == SETUP_SONS) {
                             digitalWrite(PINO_VCC_AMPLIFICADOR, LOW);
-                            df_volume(cfg.alarme_mp3_vol);
+                            dfplayer_volume(cfg.alarme_mp3_vol);
                             delay(50);
-                            df_play(cfg.alarme_som);
+                            dfplayer_play(cfg.alarme_som);
                         }
                     }
                 }
@@ -111,13 +111,13 @@ void tratarToqueCurto() {
 void processarBotao() {
   // 1. Se estiver no período de bloqueio pós-despertar, consome os eventos
   if (millis() < state.bloqueio_clique_ate) {
-      myBtn.wasPressed();
-      myBtn.wasReleased();
+      encoderButton.wasPressed();
+      encoderButton.wasReleased();
       return;
   }
 
   // 2. Se o botão for mantido pressionado (Toque Longo)
-  if (myBtn.pressedFor(LONG_PRESS) && !state.pressionadoLongo) {
+  if (encoderButton.pressedFor(LONG_PRESS) && !state.pressionadoLongo) {
       state.pressionadoLongo = true; // Trava para não repetir
       
       if (state.alarme_tocando || state.em_soneca) {
@@ -127,7 +127,7 @@ void processarBotao() {
           state.soneca_end_time = millis() + TEMPO_SONECA_MS; // Reseta a contagem
           beep(100); delay(160); beep(100);
           
-          df_stop();
+          dfplayer_stop();
           rx.setAudioOutputHighImpedance(true);
           digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
           state.radio_ligado = false;
@@ -160,7 +160,7 @@ void processarBotao() {
   }
 
   // 3. Detecção de Clique Simples (sem delay para toque duplo)
-  if (myBtn.wasReleased()) {
+  if (encoderButton.wasReleased()) {
       if (state.pressionadoLongo) {
           // Acabou de soltar após um toque longo. Apenas reseta a trava.
           state.pressionadoLongo = false;

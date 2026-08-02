@@ -27,11 +27,11 @@ void verificarDisparoAlarme() {
               
               digitalWrite(PINO_VCC_AMPLIFICADOR, LOW); // LIGA O AMPLIFICADOR!
               
-              df_volume(cfg.alarme_mp3_vol); // Ajusta o volume primeiro
+              dfplayer_volume(cfg.alarme_mp3_vol); // Ajusta o volume primeiro
               
               delay(100); // Dá tempo do clone processar
               
-              df_loop(cfg.alarme_som); // Agora toca e entra em repetição
+              dfplayer_loop(cfg.alarme_som); // Agora toca e entra em repetição
           }
       }
   }

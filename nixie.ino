@@ -25,10 +25,22 @@ void atualizaNixieISR() {
       }
   }
   
+  // Implementa modulação de frames (Frame Skipping de 50%) no brilho Ultra-Min (-2)
+  static uint8_t frame_counter = 0;
+  if (sub_estado == 0 && digito_ativo == 0) {
+    frame_counter = (frame_counter + 1) % 2;
+  }
+  
+  if (show_digits && state.estado_menu == MODO_RELOGIO && !state.alarme_tocando && !state.em_soneca && state.nixie_brilho_atual == -2) {
+    if (frame_counter != 0) {
+      show_digits = false; // Apaga o frame alternado para reduzir a intensidade média pela metade (1/24 duty cycle)
+    }
+  }
+  
   // 2. Determina se o LED base deve estar aceso neste momento
   bool led_aceso_ciclo = false;
   if (state.estado_menu == MODO_RELOGIO && (!state.radio_ligado || state.radio_modo_sintonia == 2)) {
-    bool exibindo_temperatura = (sec % 10 >= 8 && state.nixie_brilho_atual != -2 && !state.alarme_tocando && !state.is_slot_machine);
+    bool exibindo_temperatura = ((sec % TEMP_EXIBIR_INTERVALO) >= (TEMP_EXIBIR_INTERVALO - TEMP_EXIBIR_DURACAO) && state.nixie_brilho_atual != -3 && !state.alarme_tocando && !state.is_slot_machine);
     if (exibindo_temperatura) {
       led_aceso_ciclo = false; // Apaga o LED base durante a exibição de temperatura
     } else if (state.nixie_brilho_atual >= 0 || state.alarme_tocando || state.em_soneca) {
@@ -40,7 +52,7 @@ void atualizaNixieISR() {
       }
       led_aceso_ciclo = led_estado_pisca;
     } else {
-      led_aceso_ciclo = false; // Apaga o LED base nos níveis -1 e -2
+      led_aceso_ciclo = false; // Apaga o LED base nos níveis -1, -2 e -3
     }
   } else if (state.radio_ligado && state.radio_controla_volume) {
     led_aceso_ciclo = true;
@@ -59,9 +71,9 @@ void atualizaNixieISR() {
   } else {
     if (limite_brilho >= 0) {
       limite_brilho = limite_brilho + 1;
-    } else if (limite_brilho == -1) {
+    } else if (limite_brilho == -1 || limite_brilho == -2) {
       limite_brilho = 1; // Brilho mínimo ativo
-    } else if (limite_brilho == -2) {
+    } else if (limite_brilho == -3) {
       limite_brilho = 0; // Totalmente desligado
     }
   }
@@ -121,7 +133,7 @@ void ajustarBrilhoNixie(int dir) {
       beep(15);
     }
   } else { // Anti-horário / Esquerda (Diminui brilho)
-    if (state.nixie_brilho_atual > -2) {
+    if (state.nixie_brilho_atual > -3) {
       state.nixie_brilho_atual--;
       beep(15);
     }
