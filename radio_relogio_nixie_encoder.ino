@@ -9,6 +9,7 @@
 #include <Wire.h>
 
 #include "configuracao.h"
+#include "watchdog.h"
 
 
 ErriezDS1307 rtc;
@@ -220,9 +221,12 @@ void setup() {
   prepararQuadroNixie();
   Timer1.initialize(250);
   Timer1.attachInterrupt(atualizaNixieISR);
+
+  iniciarWatchdog();
 }
 
 void loop() {
+  alimentarWatchdog();
   encoder_pos_atual = encoder->getPosition();
 
   // O despertar do estado totalmente desligado é tratado diretamente na rotação
