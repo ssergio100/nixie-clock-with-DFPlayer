@@ -13,7 +13,7 @@ void salvar_e_sair() {
     sec = 0; // Reseta segundos ao salvar horário editado
     gravarDataHoraRTC();
     
-    EEPROM.put(0, cfg);
+    salvarConfiguracao();
 }
 
 void tratarToqueCurto() {
@@ -24,7 +24,7 @@ void tratarToqueCurto() {
         beep(500); // Confirma encerramento com bipe longo
         
         pararAudioAlarme();
-        EEPROM.put(0, cfg);
+        salvarConfiguracao();
         atualiza_lcd();
     } else {
         if (state.radio_ligado) {
@@ -150,7 +150,7 @@ void processarBotao() {
               digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
               beep(70);
               state.radio_ligado = false;
-              EEPROM.put(0, cfg);
+              salvarConfiguracao();
           }
           atualiza_lcd();
       }

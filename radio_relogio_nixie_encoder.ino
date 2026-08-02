@@ -8,6 +8,8 @@
 #include <TimerOne.h>
 #include <Wire.h>
 
+#include "configuracao.h"
+
 
 ErriezDS1307 rtc;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -209,28 +211,7 @@ void setup() {
   lcd.clear();
 
   // Carregar Alarmes e Configurações
-  EEPROM.get(0, cfg);
-  // Validação de sanidade após carregar da EEPROM (caso seja a primeira
-  // inicialização do chip)
-  if (cfg.alarme_hora > 23)
-    cfg.alarme_hora = 6;
-  if (cfg.alarme_min > 59)
-    cfg.alarme_min = 0;
-  cfg.alarme_ligado = (cfg.alarme_ligado == 1);
-  cfg.alarme_radio = (cfg.alarme_radio == 1);
-  cfg.alarme_fds = (cfg.alarme_fds == 1);
-  if (cfg.alarme_som == 0 || cfg.alarme_som > 99)
-    cfg.alarme_som = 1;
-  if (cfg.alarme_mp3_vol > 30)
-    cfg.alarme_mp3_vol = 25;
-  if (cfg.chime_som == 0 || cfg.chime_som > 99)
-    cfg.chime_som = 2;
-  if (cfg.chime_volume > 30)
-    cfg.chime_volume = 15;
-  if (cfg.radio_frequencia < 7610 || cfg.radio_frequencia > 10790 ||
-      (cfg.radio_frequencia % 20 != 10)) {
-    cfg.radio_frequencia = 9470; // 94.7 MHz padrão
-  }
+  carregarConfiguracao();
 
   rx.setFrequency(cfg.radio_frequencia);
 
@@ -306,7 +287,7 @@ void loop() {
     state.alarme_tocando = false;
     state.em_soneca = false;
     pararAudioAlarme();
-    EEPROM.put(0, cfg);
+    salvarConfiguracao();
     atualiza_lcd();
   }
 
