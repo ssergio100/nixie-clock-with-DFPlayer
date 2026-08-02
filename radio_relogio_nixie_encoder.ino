@@ -111,42 +111,6 @@ RotaryEncoder *encoder = nullptr;
 
 void ajustarBrilhoNixie(int dir);
 
-uint8_t calcularDiaSemana(uint8_t d, uint8_t m, uint16_t y) {
-  if (y < 100)
-    y += 2000;
-  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) {
-    return 1; // Retorno de segurança (1 = Domingo) se os dados forem
-              // inválidos/não inicializados
-  }
-  static const uint8_t t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
-  if (m < 3) {
-    y -= 1;
-  }
-  return ((y + y / 4 - y / 100 + y / 400 + t[m - 1] + d) % 7) +
-         1; // 1 = Domingo, 7 = Sábado
-}
-
-const char *obterNomeDiaSemana(uint8_t wd) {
-  switch (wd) {
-  case 1:
-    return "Domingo";
-  case 2:
-    return "Segunda";
-  case 3:
-    return "Terca";
-  case 4:
-    return "Quarta";
-  case 5:
-    return "Quinta";
-  case 6:
-    return "Sexta";
-  case 7:
-    return "Sabado";
-  default:
-    return "Erro";
-  }
-}
-
 void setup() {
   Serial.begin(9600);
 

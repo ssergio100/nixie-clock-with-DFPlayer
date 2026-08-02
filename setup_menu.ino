@@ -45,14 +45,17 @@ void run_setup_menu() {
 
             case SETUP_DATA:
                 if (state.passo_setup == 0) { // Dia
-                    if (dir > 0) mday = (mday >= 31) ? 1 : mday + 1;
-                    else mday = (mday <= 1) ? 31 : mday - 1;
+                    uint8_t ultimo_dia = obterDiasNoMes(mon, year);
+                    if (dir > 0) mday = (mday >= ultimo_dia) ? 1 : mday + 1;
+                    else mday = (mday <= 1) ? ultimo_dia : mday - 1;
                 } else if (state.passo_setup == 1) { // Mês
                     if (dir > 0) mon = (mon >= 12) ? 1 : mon + 1;
                     else mon = (mon <= 1) ? 12 : mon - 1;
+                    mday = limitarDiaAoMes(mday, mon, year);
                 } else if (state.passo_setup == 2) { // Ano
                     if (dir > 0) year = (year >= 2099) ? 2000 : year + 1;
                     else year = (year <= 2000) ? 2099 : year - 1;
+                    mday = limitarDiaAoMes(mday, mon, year);
                 }
                 // Sincroniza o dia da semana após ajuste de data
                 wday = calcularDiaSemana(mday, mon, year);

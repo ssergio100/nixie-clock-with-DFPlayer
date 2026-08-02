@@ -9,6 +9,7 @@ void salvar_e_sair() {
     dfplayer_stop();
     digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
     
+    mday = limitarDiaAoMes(mday, mon, year);
     wday = calcularDiaSemana(mday, mon, year);
     sec = 0; // Reseta segundos ao salvar horário editado
     gravarDataHoraRTC();

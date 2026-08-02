@@ -92,6 +92,11 @@ bool gravarDataHoraRTC() {
     return false;
   }
 
+  if (!dataValida(mday, mon, year)) {
+    Serial.println(F("Gravacao RTC recusada: data invalida"));
+    return false;
+  }
+
   prepararTransacaoI2C();
   // O projeto usa 1=domingo..7=sabado; a ErriezDS1307 espera 0..6.
   uint8_t wday_rtc = (wday >= 1 && wday <= 7) ? wday - 1 : 0;
