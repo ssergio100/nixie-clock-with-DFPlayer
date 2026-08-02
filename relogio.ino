@@ -42,7 +42,7 @@ void relogio() {
   }
 
   // Exibição da Temperatura a cada 10 segundos (nos segundos terminados em 8 e 9, total de 2s)
-  if ((sec % TEMP_EXIBIR_INTERVALO) >= (TEMP_EXIBIR_INTERVALO - TEMP_EXIBIR_DURACAO) && state.nixie_brilho_atual != -3 && !state.alarme_tocando && !state.is_slot_machine) {
+  if ((sec % TEMP_EXIBIR_INTERVALO) >= (TEMP_EXIBIR_INTERVALO - TEMP_EXIBIR_DURACAO) && state.nixie_brilho_atual != -2 && !state.alarme_tocando && !state.is_slot_machine) {
       int temp = lerTemperatura();
       if (temp < 0) temp = 0;
       if (temp > 999) temp = 999;

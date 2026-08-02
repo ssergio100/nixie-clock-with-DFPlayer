@@ -96,6 +96,13 @@ uint16_t year;
 unsigned long tempo_atual_ms, tempo_ultima_leitura_rtc;
 const unsigned long LONG_PRESS = 700;
 const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
+const unsigned long INTERVALO_RECONEXAO_RTC = 5000;
+const uint32_t TIMEOUT_I2C_US = 25000;
+
+bool rtc_disponivel = false;
+bool rtc_falha_reportada = false;
+bool i2c_requer_recuperacao = false;
+unsigned long tempo_ultima_tentativa_rtc = 0;
 
 RotaryEncoder *encoder = nullptr;
 
@@ -156,19 +163,9 @@ void setup() {
   pinMode(PINO_ANODO_MIN_DEZ, OUTPUT);
   pinMode(PINO_ANODO_MIN_UNI, OUTPUT);
 
-  Wire.begin();
+  configurarWire();
+  inicializarRTC();
 
-  if (!rtc.begin()) {
-    Serial.println(F("RTC not found")); // Apenas avisa, sem travar
-  } else {
-    if (!rtc.isRunning()) {
-      Serial.println(F("RTC oscillator is stopped. Starting it..."));
-      rtc.clockEnable(true);
-    }
-  }
-
-  rtc.setSquareWave(
-      SquareWaveDisable); // SQW em LOW permanente → LED do RTC sempre aceso
   digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH); // amplificador desligado
   encoderButton.begin();
   dfSerial.begin(9600); // Inicia a comunicação com o DFPlayer Mini
@@ -205,8 +202,6 @@ void setup() {
                               RotaryEncoder::LatchMode::FOUR3);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_A), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PINO_ENCODER_B), checkPosition, CHANGE);
-
-  rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
 
   // Iniciar LCD
   lcd.init();
@@ -273,9 +268,9 @@ void loop() {
       INTERVALO_ATUALIZACAO_RTC) {
     if (state.estado_menu == MODO_RELOGIO) { // Só puxa a hora do chip físico se
                                              // não estivermos no menu
-      if (!rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday)) {
-        Serial.println(F("Read date/time failed"));
-      } else {
+      bool hora_atualizada = rtc_disponivel ? lerDataHoraRTC()
+                                            : tentarReconectarRTC();
+      if (hora_atualizada) {
         wday = calcularDiaSemana(mday, mon,
                                  year); // Garante dia da semana 100% correto
                                         // calculado em tempo de execução

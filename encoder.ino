@@ -11,7 +11,7 @@ void salvar_e_sair() {
     
     wday = calcularDiaSemana(mday, mon, year);
     sec = 0; // Reseta segundos ao salvar horário editado
-    rtc.setDateTime(hour, min, sec, mday, mon, year, wday);
+    gravarDataHoraRTC();
     
     EEPROM.put(0, cfg);
 }
@@ -51,7 +51,7 @@ void tratarToqueCurto() {
             // No modo SETUP / RELÓGIO
             if (state.estado_menu == MODO_RELOGIO) {
                 // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
-                rtc.getDateTime(&hour, &min, &sec, &mday, &mon, &year, &wday);
+                lerDataHoraRTC();
                 beep(100); delay(160); beep(100); // Bipe duplo de ENTRADA mais longo
                 state.estado_menu = SETUP_HORARIO;
                 state.passo_setup = 0;
