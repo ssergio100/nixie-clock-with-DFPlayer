@@ -8,11 +8,41 @@ void salvar_e_sair() {
     // Parar qualquer preview de som e desligar o amplificador
     dfplayer_stop();
     digitalWrite(PINO_VCC_AMPLIFICADOR, HIGH);
-    
-    mday = limitarDiaAoMes(mday, mon, year);
-    wday = calcularDiaSemana(mday, mon, year);
-    sec = 0; // Reseta segundos ao salvar horário editado
-    gravarDataHoraRTC();
+
+    // Guarda somente os valores que o usuario pode ter editado. A nova
+    // leitura abaixo atualiza os segundos (e os campos nao editados) para o
+    // instante real da confirmacao, evitando atrasar o relogio pelo tempo que
+    // o menu permaneceu aberto.
+    uint8_t hora_ajustada = hour;
+    uint8_t minuto_ajustado = min;
+    uint8_t dia_ajustado = mday;
+    uint8_t mes_ajustado = mon;
+    uint16_t ano_ajustado = year;
+    bool deve_gravar_rtc = ajuste_hora_pendente ||
+                           ajuste_minuto_pendente || ajuste_data_pendente;
+
+    if (lerDataHoraRTC() && deve_gravar_rtc) {
+        if (ajuste_hora_pendente) {
+            hour = hora_ajustada;
+        }
+        if (ajuste_minuto_pendente) {
+            min = minuto_ajustado;
+        }
+        if (ajuste_data_pendente) {
+            mday = limitarDiaAoMes(dia_ajustado, mes_ajustado, ano_ajustado);
+            mon = mes_ajustado;
+            year = ano_ajustado;
+        }
+
+        // 'sec' veio da leitura feita imediatamente antes da gravacao e nao e
+        // alterado: ajustar hora/data preserva os segundos correntes do RTC.
+        wday = calcularDiaSemana(mday, mon, year);
+        gravarDataHoraRTC();
+    }
+
+    ajuste_hora_pendente = false;
+    ajuste_minuto_pendente = false;
+    ajuste_data_pendente = false;
     
     salvarConfiguracao();
 }
@@ -51,6 +81,9 @@ void tratarToqueCurto() {
                 cancelarChime();
                 // Acabou de entrar no setup: puxa os dados do RTC pela última vez antes de congelar para edição
                 lerDataHoraRTC();
+                ajuste_hora_pendente = false;
+                ajuste_minuto_pendente = false;
+                ajuste_data_pendente = false;
                 beepDuplo(); // Bipe duplo de ENTRADA
                 state.estado_menu = SETUP_HORARIO;
                 state.passo_setup = 0;

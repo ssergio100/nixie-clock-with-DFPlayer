@@ -16,9 +16,11 @@ void run_setup_menu() {
                 if (state.passo_setup == 0) { // Hora
                     if (dir > 0) hour = (hour >= 23) ? 0 : hour + 1;
                     else hour = (hour == 0) ? 23 : hour - 1;
+                    ajuste_hora_pendente = true;
                 } else if (state.passo_setup == 1) { // Minuto
                     if (dir > 0) min = (min >= 59) ? 0 : min + 1;
                     else min = (min == 0) ? 59 : min - 1;
+                    ajuste_minuto_pendente = true;
                 }
                 break;
 
@@ -59,6 +61,7 @@ void run_setup_menu() {
                 }
                 // Sincroniza o dia da semana após ajuste de data
                 wday = calcularDiaSemana(mday, mon, year);
+                ajuste_data_pendente = true;
                 break;
 
             case SETUP_SONS:

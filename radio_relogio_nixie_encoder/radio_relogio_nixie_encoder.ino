@@ -96,6 +96,13 @@ const int SIGNAL_THRESHOLD = 30;
 uint8_t hour, min, sec, mday, mon, wday;
 uint16_t year;
 
+// Indicam quais campos do RTC foram realmente alterados no menu. Assim, ao
+// salvar, os demais campos podem continuar correndo no RTC em vez de receber
+// os valores congelados quando o menu foi aberto.
+bool ajuste_hora_pendente = false;
+bool ajuste_minuto_pendente = false;
+bool ajuste_data_pendente = false;
+
 unsigned long tempo_atual_ms, tempo_ultima_leitura_rtc;
 const unsigned long LONG_PRESS = 700;
 const unsigned long INTERVALO_ATUALIZACAO_RTC = 1000;
